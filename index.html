@@ -1,0 +1,2154 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=5">
+<title>ระบบจัดการอุปกรณ์ความปลอดภัยฯ กฟจ.ลำพูน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js" crossorigin></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --pea:#7A1FA2; --pea-deep:#4A1263; --pea-soft:#F1E7F7; --pea-line:#E0CCEE;
+  --gold:#C9A227; --gold-soft:#FBF4DC;
+  --ink:#1E1B24; --ink-2:#5A5266; --ink-3:#8B8395;
+  --paper:#F5F3F8; --card:#FFFFFF; --line:#E4DEEC;
+  --ok:#1E7A46; --ok-soft:#E6F4EC;
+  --warn:#B8621B; --warn-soft:#FBF0E4;
+  --bad:#B3261E; --bad-soft:#FBEAE8;
+  --r:12px; --r-s:8px;
+  --sh:0 1px 2px rgba(30,27,36,.06),0 4px 14px rgba(30,27,36,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:'Sarabun',system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-text-size-adjust:100%}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+button{cursor:pointer}
+a{color:var(--pea);text-decoration:none}
+h1,h2,h3,h4{margin:0;font-weight:800;letter-spacing:-.01em;line-height:1.25}
+
+/* ── shell ── */
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 72px}
+.wrap.narrow{max-width:820px}
+.topbar{background:linear-gradient(105deg,var(--pea-deep),var(--pea) 62%,#9B36C4);color:#fff;padding:16px 0 18px;box-shadow:0 2px 14px rgba(74,18,99,.22)}
+.topbar .wrap{padding-bottom:0}
+.tb-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.tb-title{font-size:19px;font-weight:800;letter-spacing:-.015em}
+.tb-sub{font-size:12.5px;opacity:.82;font-weight:400;margin-top:1px}
+.tb-spacer{flex:1}
+.crumb{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-3);padding:14px 0 2px;flex-wrap:wrap}
+.crumb a{color:var(--ink-2);font-weight:600}
+.crumb span{opacity:.55}
+
+/* ── cards ── */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
+.card-p{padding:18px}
+.sec-head{display:flex;align-items:center;gap:10px;margin:22px 0 12px;flex-wrap:wrap}
+.sec-head h2{font-size:17px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--pea);background:var(--pea-soft);padding:3px 9px;border-radius:99px}
+
+/* ── buttons ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:9px 16px;border-radius:var(--r-s);border:1px solid transparent;font-weight:700;font-size:14px;background:var(--pea);color:#fff;transition:filter .14s,transform .06s}
+.btn:hover{filter:brightness(1.08)}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:#fff;color:var(--pea);border-color:var(--pea-line)}
+.btn.ghost:hover{background:var(--pea-soft)}
+.btn.neutral{background:#fff;color:var(--ink-2);border-color:var(--line)}
+.btn.neutral:hover{background:#FAF8FC}
+.btn.ok{background:var(--ok)}
+.btn.bad{background:#fff;color:var(--bad);border-color:#EFCFCC}
+.btn.bad:hover{background:var(--bad-soft)}
+.btn.gold{background:var(--gold);color:#3A2E05}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:7px}
+.btn.xs{padding:4px 8px;font-size:12px;border-radius:6px;gap:4px}
+.btn.block{width:100%}
+.iconbtn{background:#fff;border:1px solid var(--line);border-radius:7px;padding:5px 7px;display:inline-flex;align-items:center;color:var(--ink-2)}
+.iconbtn:hover{background:var(--pea-soft);color:var(--pea);border-color:var(--pea-line)}
+.iconbtn.danger:hover{background:var(--bad-soft);color:var(--bad);border-color:#EFCFCC}
+
+/* ── form ── */
+.field{margin-bottom:12px}
+.lbl{display:block;font-size:12.5px;font-weight:700;color:var(--ink-2);margin-bottom:5px}
+.lbl .req{color:var(--bad)}
+.inp{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:var(--r-s);background:#fff;outline:none;transition:border-color .14s,box-shadow .14s}
+.inp:focus{border-color:var(--pea);box-shadow:0 0 0 3px var(--pea-soft)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%238B8395' stroke-width='1.6' fill='none' stroke-linecap='round'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:760px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+
+/* ── typeahead ── */
+.ta{position:relative}
+.ta-list{position:absolute;z-index:60;left:0;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--line);border-radius:var(--r-s);box-shadow:0 8px 26px rgba(30,27,36,.14);max-height:270px;overflow-y:auto}
+.ta-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid #F2EFF6;font-size:14px}
+.ta-item:last-child{border-bottom:none}
+.ta-item:hover,.ta-item.on{background:var(--pea-soft)}
+.ta-item small{display:block;color:var(--ink-3);font-size:11.5px}
+.ta-empty{padding:12px;color:var(--ink-3);font-size:13px;text-align:center}
+
+/* ── table ── */
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:#fff}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t th{background:#FAF8FC;color:var(--ink-2);font-weight:700;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;padding:9px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;z-index:2}
+table.t td{padding:8px 10px;border-bottom:1px solid #F2EFF6;vertical-align:middle}
+table.t tr:last-child td{border-bottom:none}
+table.t tbody tr:hover{background:#FCFAFE}
+.num{text-align:right}
+.ctr{text-align:center}
+
+/* ── zone rail (signature) ── */
+.zone{margin-bottom:14px}
+.zone-head{display:flex;align-items:center;gap:10px;padding:7px 0 8px}
+.zone-dot{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-size:13px;flex:none;background:var(--pea-soft);color:var(--pea-deep)}
+.zone-name{font-weight:800;font-size:13.5px;letter-spacing:.02em}
+.zone-rule{flex:1;height:1px;background:linear-gradient(90deg,var(--pea-line),transparent)}
+.zone-count{font-size:11.5px;color:var(--ink-3);font-weight:600}
+
+/* ── chips / badges ── */
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:12px;font-weight:600;background:var(--pea-soft);color:var(--pea-deep);border:1px solid var(--pea-line)}
+.chip.g{background:var(--ok-soft);color:var(--ok);border-color:#C8E6D5}
+.chip.w{background:var(--warn-soft);color:var(--warn);border-color:#EDD9C2}
+.chip.r{background:var(--bad-soft);color:var(--bad);border-color:#EFCFCC}
+.chip.n{background:#F4F2F7;color:var(--ink-2);border-color:var(--line)}
+.chip.clk{cursor:pointer}.chip.clk:hover{filter:brightness(.97)}
+.dotc{width:11px;height:11px;border-radius:99px;border:1px solid rgba(0,0,0,.18);display:inline-block;flex:none}
+
+/* ── office picker ── */
+.ofgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.ofcard{text-align:left;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:13px 14px;display:flex;align-items:center;gap:11px;transition:border-color .14s,box-shadow .14s,transform .08s}
+.ofcard:hover{border-color:var(--pea);box-shadow:0 4px 16px rgba(122,31,162,.13);transform:translateY(-1px)}
+.ofnum{width:28px;height:28px;border-radius:9px;background:var(--pea-deep);color:#fff;display:grid;place-items:center;font-size:12.5px;font-weight:700;flex:none}
+.ofname{font-weight:700;font-size:14.5px;line-height:1.2}
+.ofmeta{font-size:11.5px;color:var(--ink-3)}
+
+/* ── nav tiles (page 3 / 5) ── */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.tile{text-align:left;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:18px;transition:all .15s}
+.tile:hover{border-color:var(--pea);box-shadow:0 6px 20px rgba(122,31,162,.12);transform:translateY(-2px)}
+.tile-ic{width:38px;height:38px;border-radius:11px;background:var(--pea-soft);color:var(--pea);display:grid;place-items:center;margin-bottom:11px}
+.tile-t{font-weight:800;font-size:15.5px;margin-bottom:3px}
+.tile-d{font-size:12.5px;color:var(--ink-3);line-height:1.45}
+
+/* ── modal ── */
+.ov{position:fixed;inset:0;background:rgba(30,27,36,.5);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:16px;z-index:200;animation:fade .16s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:460px;max-height:92vh;overflow-y:auto;box-shadow:0 24px 60px rgba(30,27,36,.3);animation:pop .18s cubic-bezier(.2,.9,.3,1.1)}
+.modal.wide{max-width:760px}
+@keyframes pop{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+.modal-h{padding:18px 20px 12px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:10px}
+.modal-b{padding:18px 20px}
+.modal-f{padding:12px 20px 18px;display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+
+/* ── misc ── */
+.msg{padding:10px 13px;border-radius:var(--r-s);font-size:13.5px;font-weight:600;display:flex;gap:8px;align-items:flex-start}
+.msg.e{background:var(--bad-soft);color:var(--bad)}
+.msg.s{background:var(--ok-soft);color:var(--ok)}
+.msg.i{background:var(--gold-soft);color:#7A6412}
+.empty{text-align:center;padding:44px 20px;color:var(--ink-3)}
+.empty-t{font-weight:700;color:var(--ink-2);margin:10px 0 4px;font-size:15px}
+.spin{width:18px;height:18px;border:2.5px solid var(--pea-line);border-top-color:var(--pea);border-radius:99px;animation:sp .7s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.center{min-height:60vh;display:grid;place-items:center}
+.hr{height:1px;background:var(--line);margin:16px 0}
+.hint{font-size:12px;color:var(--ink-3);line-height:1.5}
+.qrbox{background:#fff;padding:14px;border-radius:var(--r);border:1px solid var(--line);display:inline-block;text-align:center}
+.qrbox canvas,.qrbox img{display:block}
+@media print{.noprint{display:none!important}body{background:#fff}}
+.pdfstage{position:fixed;left:-10000px;top:0;background:#fff;width:1100px;padding:36px;font-family:'Sarabun',sans-serif}
+</style>
+</head>
+<body>
+<div id="root"><div class="center"><span class="spin"></span></div></div>
+<script type="text/babel" data-presets="react">
+/* ═══════════════════════════════════════════════════════════════
+   ระบบจัดการอุปกรณ์ความปลอดภัยฯ  กฟจ.ลำพูน และ กฟส.ในสังกัด
+   Single-file React + Firebase Realtime Database
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─────────── 1. FIREBASE ─────────── */
+/*  แทนค่าจาก Firebase Console → Project settings → Your apps → Web
+    หมายเหตุ: firebaseConfig ไม่ใช่ความลับ (เปิดเผยได้)
+    ความปลอดภัยจริงอยู่ที่ Realtime Database Rules   */
+const firebaseConfig = {
+  apiKey: "AIzaSyD6YbDvS5Y7_VMScfm_RaZq_RoaiqPPfyA",
+  authDomain: "ppe-lamphun.firebaseapp.com",
+  databaseURL: "https://ppe-lamphun-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ppe-lamphun",
+  storageBucket: "ppe-lamphun.firebasestorage.app",
+  messagingSenderId: "236373805941",
+  appId: "1:236373805941:web:f7565c7d3a1bf90507e13c"
+};
+
+const MASTER_EMAIL = "yai_numnuan@hotmail.com";   // แอดมินหลัก (Google login)
+const ROOT = "ppe";
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+const R = (p) => db.ref(p ? ROOT + "/" + p : ROOT);
+
+/* app ตัวที่สอง — ใช้สร้างบัญชีให้ กฟส. โดยไม่หลุด session ของแอดมินหลัก */
+let secApp = null;
+function secondaryAuth(){
+  if(!secApp) secApp = firebase.initializeApp(firebaseConfig, "acctmaker");
+  return secApp.auth();
+}
+
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+/* ─────────── 2. หน่วยงาน 10 แห่ง ─────────── */
+const OFFICES = [
+  { id:"lamphun",        name:"กฟจ.ลำพูน" },
+  { id:"pasang",         name:"กฟส.ป่าซาง" },
+  { id:"banhong",        name:"กฟส.บ้านโฮ่ง" },
+  { id:"li",             name:"กฟส.ลี้" },
+  { id:"banthi",         name:"กฟส.บ้านธิ" },
+  { id:"maetha",         name:"กฟส.แม่ทา" },
+  { id:"nakhonchedi",    name:"กฟส.นครเจดีย์" },
+  { id:"wiangnonglong",  name:"กฟส.เวียงหนองล่อง" },
+  { id:"thunghuachang",  name:"กฟส.ทุ่งหัวช้าง" },
+  { id:"maetuen",        name:"กฟส.แม่ตืน" }
+];
+const OFC = Object.fromEntries(OFFICES.map(o => [o.id, o.name]));
+
+/* ─────────── 3. โซนการสวมใส่ (ศีรษะ → เท้า → พื้นที่ทำงาน) ─────────── */
+const ZONES = [
+  { id:"head", name:"ศีรษะ",                icon:"⛑" },
+  { id:"face", name:"ใบหน้า ตา และการหายใจ", icon:"😷" },
+  { id:"body", name:"ลำตัว และการกันตก",     icon:"🦺" },
+  { id:"hand", name:"มือ",                  icon:"🧤" },
+  { id:"foot", name:"เท้า และการปีนเสา",     icon:"🥾" },
+  { id:"area", name:"อุปกรณ์กั้น–เตือนพื้นที่ทำงาน", icon:"🚧" }
+];
+const ZONE_IX = Object.fromEntries(ZONES.map((z,i) => [z.id, i]));
+
+/* ─────────── 4. รายการอุปกรณ์ตั้งต้น ─────────── */
+const SEED_ITEMS = [
+  { name:"หมวกนิรภัย",                        zone:"head", variant:"color", unit:"ใบ" },
+  { name:"ไฟฉายติดศีรษะ",                     zone:"head", variant:"none",  unit:"อัน" },
+  { name:"PVD ชนิดติดหมวกนิรภัย",              zone:"head", variant:"none",  unit:"ชุด" },
+  { name:"หน้ากากป้องกันใบหน้า (Face Shield)",  zone:"face", variant:"none",  unit:"อัน" },
+  { name:"แว่นตากันแดด",                       zone:"face", variant:"none",  unit:"อัน" },
+  { name:"หน้ากากอนามัย",                      zone:"face", variant:"none",  unit:"กล่อง" },
+  { name:"ปลั๊กอุดหู (Ear Plug)",              zone:"face", variant:"none",  unit:"คู่" },
+  { name:"เสื้อสะท้อนแสง",                     zone:"body", variant:"none",  unit:"ตัว" },
+  { name:"เข็มขัดนิรภัย (Safety Belt)",        zone:"body", variant:"none",  unit:"เส้น" },
+  { name:"สายกันตก (Safety Strap)",            zone:"body", variant:"none",  unit:"เส้น" },
+  { name:"เข็มขัดนิรภัยเต็มตัว (Full Body Harness)", zone:"body", variant:"none", unit:"ชุด" },
+  { name:"ถุงมือ",                            zone:"hand", variant:"glove", unit:"คู่" },
+  { name:"ปากกาวัดแรงดันไฟฟ้า",                zone:"hand", variant:"none",  unit:"ด้าม" },
+  { name:"รองเท้า",                           zone:"foot", variant:"shoe",  unit:"คู่" },
+  { name:"ขาปีนเสา",                          zone:"foot", variant:"none",  unit:"คู่" },
+  { name:"ป้ายเตือน “อันตราย ห้ามสับสวิตช์”",   zone:"area", variant:"none",  unit:"ป้าย" },
+  { name:"ป้ายกั้นทางเตือนอันตราย",             zone:"area", variant:"none",  unit:"ป้าย" },
+  { name:"เทปกั้นพื้นที่",                     zone:"area", variant:"none",  unit:"ม้วน" },
+  { name:"กรวยจราจร",                         zone:"area", variant:"none",  unit:"อัน" },
+  { name:"กระบองไฟจราจร",                     zone:"area", variant:"none",  unit:"อัน" },
+  { name:"ธงให้สัญญาณ",                       zone:"area", variant:"none",  unit:"ผืน" }
+];
+
+/* ─────────── 5. ตัวเลือกย่อย ─────────── */
+const SHOE_SIZES  = Array.from({length:16},(_,i)=>String(35+i));      // 35–50
+const GLOVE_SIZES = ["S","M","L","XL","9","10"];
+const HELMET_COLORS = [
+  { v:"สีแดง",   hex:"#D32F2F" }, { v:"สีเหลือง", hex:"#F9C000" },
+  { v:"สีส้ม",   hex:"#EF6C00" }, { v:"สีขาว",   hex:"#FFFFFF" },
+  { v:"สีฟ้า",   hex:"#29A3DC" }
+];
+const SEED_SUBTYPES = {
+  shoe : ["รองเท้านิรภัย","รองเท้าคอมแบทหนัง"],
+  glove: ["ถุงมือหนังแรงสูง","ถุงมือยางแรงสูง","ถุงมือหนังแรงต่ำ","ถุงมือยางแรงต่ำ",
+          "ถุงมือปีนเสา","ถุงมือผ้า","ถุงมือผ้าชุบยาง"]
+};
+const VARIANT_LABEL = { shoe:"ไซส์", glove:"ไซส์", color:"สี", none:"" };
+const UNITS = ["ใบ","คู่","อัน","ตัว","ชุด","เส้น","ม้วน","กล่อง","ป้าย","ด้าม","ผืน","ชิ้น","แพ็ค","ชุด/กล่อง"];
+const VARIANT_KINDS = [
+  { v:"none",  t:"ไม่มีตัวเลือกย่อย" },
+  { v:"shoe",  t:"แบบรองเท้า — ประเภทย่อย + ไซส์ 35–50" },
+  { v:"glove", t:"แบบถุงมือ — ประเภทย่อย + ไซส์ S/M/L/XL/9/10" },
+  { v:"color", t:"แบบหมวกนิรภัย — เลือกสี" }
+];
+function sizeOptions(variant){
+  if(variant==="shoe")  return SHOE_SIZES;
+  if(variant==="glove") return GLOVE_SIZES;
+  if(variant==="color") return HELMET_COLORS.map(c=>c.v);
+  return [];
+}
+function colorHex(v){ const f=HELMET_COLORS.find(c=>c.v===v); return f?f.hex:"#CCC"; }
+
+/* ─────────── 6. Utilities ─────────── */
+const safeKey = (s) => String(s||"").replace(/[.#$/\[\]]/g,"_").trim() || "-";
+const skuOf   = (it) => [it.itemId, safeKey(it.subType||""), safeKey(it.size||"")].join("~");
+const nowTs   = () => Date.now();
+const todayISO= () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+const thDate  = (iso) => { if(!iso) return "-"; const [y,m,d]=iso.split("-"); return d+"/"+m+"/"+(Number(y)+543); };
+const thDateTime = (ts) => { const d=new Date(ts);
+  return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+(d.getFullYear()+543)+
+    " "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"); };
+const isoOfTs = (ts) => { const d=new Date(ts);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+
+/* ชื่อเต็มของรายการ พร้อมตัวเลือกย่อย */
+function fullLabel(x){
+  const bits=[x.itemName];
+  if(x.subType) bits.push(x.subType);
+  if(x.size)    bits.push((x.variant==="color"?"":"ไซส์ ")+x.size);
+  return bits.join(" · ");
+}
+
+/* ── เซ็นเซอร์นามสกุล (แพตเทิร์นเดียวกับระบบลงทะเบียน Safety Talk) ──
+   "นายเกียรติพงษ์ นุ่มนวล" → "นายเกียรติพงษ์ นุ่ม***"                */
+const TH_CONS = "กขฃคฅฆงจฉชซฌญฎฏฐฑฒณดตถทธนบปผฝพฟภมยรลวศษสหฬอฮ";
+const TH_MARK = "ิีึืัุู็่้๊๋์ํ";
+function firstSyllable(w){
+  const cut = (need) => {
+    let c=0,end=-1;
+    for(let i=0;i<w.length;i++){
+      const ch=w[i];
+      if(TH_CONS.indexOf(ch)<0) continue;
+      /* อ/ว ที่ตามหลังพยัญชนะทันที มักเป็นสระหรือตัวควบ ไม่นับเป็นพยางค์ใหม่ */
+      if(i>0 && (ch==="อ"||ch==="ว") && TH_CONS.indexOf(w[i-1])>=0) continue;
+      c++; if(c===need){ end=i+1; break; }
+    }
+    if(end<0) return -1;
+    while(end<w.length && TH_MARK.indexOf(w[end])>=0) end++;
+    return end;
+  };
+  let e = cut(2);
+  if(e<0 || e>=w.length) e = cut(1);
+  if(e<0 || e>=w.length) e = Math.max(1, Math.min(w.length-1, 2));
+  return w.slice(0,e);
+}
+function censorName(full){
+  const s=String(full||"").trim();
+  if(!s) return "";
+  const parts=s.split(/\s+/);
+  if(parts.length<2) return s;
+  const last=parts[parts.length-1];
+  if(last.length<=1) return s;
+  const isThai=/[\u0E00-\u0E7F]/.test(last);
+  const keep = isThai ? firstSyllable(last) : last.slice(0,Math.min(3,last.length-1));
+  return parts.slice(0,-1).join(" ")+" "+keep+"***";
+}
+
+/* ── การเรียงลำดับตามตำแหน่ง (แพตเทิร์นเดียวกับ Safety Talk) ── */
+const PREFIX_RE = /^(นางสาว|น\.ส\.|นาง|นาย|ว่าที่ ?ร\.ต\.(ญ\.)?|ดร\.)\s*/;
+const stripPrefix = (n) => String(n||"").replace(PREFIX_RE,"").trim();
+function getGroup(pos){
+  const p=String(pos||"").trim();
+  if(!p) return 4;
+  if(p.indexOf("พขร.")>=0) return 3;
+  if(p.indexOf("คนงาน")===0 || p.indexOf("ผู้ปฏิบัติงาน")===0) return 2;
+  if(p.indexOf("ชชง")>=0||p.indexOf("ชบช.")>=0||p.indexOf("ชบค.")>=0||p.indexOf("ชพด.")>=0) return 1;
+  return 0;
+}
+const WORKER_RANK = [
+  {m:"ก่อสร้าง 1",r:0},{m:"ก่อสร้าง 2",r:1},{m:"ก่อสร้าง",r:2},{m:"ตัดกิ่งไม้",r:3},
+  {m:"ปรับปรุงระบบฯ",r:4},{m:"ซ่อมย่อย (C5)",r:6},{m:"ซ่อมย่อย",r:5},{m:"เวรแก้ฯ",r:7},
+  {m:"เวรแก้",r:7},{m:"หม้อแปลง",r:8},{m:"มิเตอร์ฯ",r:9},{m:"มิเตอร์",r:10},{m:"คลังพัสดุ",r:11}
+];
+const numOf = (s) => { const m=String(s||"").match(/(\d+)/); return m?parseInt(m[1]):0; };
+function getPosRank(pos){
+  const p=String(pos||"").trim();
+  if(!p) return {rank:97,num:0};
+  const has=(k)=>p.indexOf(k)>=0;
+  if(has("ผจก."))  return {rank:0, num:numOf(p)};
+  if(has("รจก."))  return {rank:1, num:numOf(p)};
+  if(has("หผ.(ฉ)"))return {rank:2, num:0};
+  if(has("นกต."))  return {rank:3, num:numOf(p)};
+  if(has("นทน."))  return {rank:4, num:numOf(p)};
+  if(has("ผชน."))  return {rank:5, num:numOf(p)};
+  if(has("จป.ว.")) return {rank:6, num:numOf(p)};
+  if(has("หผ."))   return {rank:7, num:0};
+  if(has("ชผ."))   return {rank:8, num:0};
+  if(has("นพด."))  return {rank:9, num:numOf(p)};
+  if(has("วศก."))  return {rank:10,num:numOf(p)};
+  if(has("นบช."))  return {rank:11,num:numOf(p)};
+  if(has("นบท"))   return {rank:12,num:numOf(p)};
+  if(has("(สข)"))  return {rank:13,num:numOf(p)};
+  if(has("(ฮล)"))  return {rank:14,num:numOf(p)};
+  if(has("(ปฟ)") && (has("พชง")||has("พบช"))) return {rank:15,num:numOf(p)};
+  if(has("พชง.")||has("พบช.")) return {rank:16,num:numOf(p)};
+  if(has("ชชง.(ปฟ)")) return {rank:20,num:0};
+  if(has("ชชง"))   return {rank:19,num:0};
+  if(has("ชบช."))  return {rank:21,num:0};
+  if(has("ชบค."))  return {rank:22,num:0};
+  if(has("ชพด."))  return {rank:23,num:0};
+  if(p.indexOf("คนงาน")===0||p.indexOf("ผู้ปฏิบัติงาน")===0){
+    let sub=99; for(const c of WORKER_RANK){ if(has(c.m)){ sub=c.r; break; } }
+    return {rank:30,num:sub};
+  }
+  if(has("พขร."))  return {rank:40,num:0};
+  return {rank:98,num:numOf(p)};
+}
+const DEPT_ORDER = ["กฟจ.ลำพูน","ผกส.","ผปบ.","ผมต.","ผบร.","ผบส.","ผสน.","ผคพ.","ผบง.","ผปร.","ผบค."];
+const deptOrder = (d) => { const i=DEPT_ORDER.indexOf(String(d||"").trim()); return i>=0?i:500; };
+function sortPersonnel(list){
+  return [...list].sort((a,b)=>{
+    const gA=getGroup(a.position), gB=getGroup(b.position);   if(gA!==gB) return gA-gB;
+    const dA=deptOrder(a.department), dB=deptOrder(b.department); if(dA!==dB) return dA-dB;
+    const pA=getPosRank(a.position),  pB=getPosRank(b.position);
+    if(pA.rank!==pB.rank) return pA.rank-pB.rank;
+    if(pA.num!==pB.num)   return pA.rank===30 ? pA.num-pB.num : pB.num-pA.num;
+    return String(a.fullName||"").localeCompare(String(b.fullName||""),"th");
+  });
+}
+
+/* ── routing (hash) ── */
+function parseHash(){
+  const raw=(location.hash||"#/").replace(/^#\/?/,"");
+  const seg=raw.split("/").filter(Boolean).map(decodeURIComponent);
+  return seg;
+}
+const go = (path) => { location.hash = "#/"+path.replace(/^\//,""); };
+
+/* ── ดาวน์โหลดไฟล์ ── */
+function saveBlob(blob, filename){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+function exportXLSX(rows, sheetName, filename, colWidths){
+  const ws=XLSX.utils.json_to_sheet(rows);
+  if(colWidths) ws["!cols"]=colWidths.map(w=>({wch:w}));
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,30));
+  XLSX.writeFile(wb, filename);
+}
+/* PDF: render HTML → canvas → jsPDF (รองรับภาษาไทยเต็มรูปแบบ) */
+async function exportPDF(node, filename, orientation){
+  const canvas = await html2canvas(node, { scale:3, backgroundColor:"#ffffff", useCORS:true, logging:false });
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: orientation||"p", unit:"mm", format:"a4" });
+  const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+  const m = 8, iw = pw - m*2, ih = canvas.height * iw / canvas.width;
+  const img = canvas.toDataURL("image/jpeg", 0.94);
+  let left = ih, y = m;
+  pdf.addImage(img, "JPEG", m, y, iw, ih, undefined, "FAST");
+  left -= (ph - m*2);
+  while(left > 1){
+    pdf.addPage();
+    y = y - (ph - m*2);
+    pdf.addImage(img, "JPEG", m, y, iw, ih, undefined, "FAST");
+    left -= (ph - m*2);
+  }
+  pdf.save(filename);
+}
+
+/* ═══════════════ 7. UI พื้นฐาน ═══════════════ */
+const PATHS = {
+  wrench:"M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17v3h3l5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.1-.4-.4-2.1 2.5-2.5z",
+  google:"M12 11v2.6h4.3c-.2 1.1-1.4 3.2-4.3 3.2a4.8 4.8 0 0 1 0-9.6c1.5 0 2.5.6 3 1.2l2-2A7.5 7.5 0 1 0 12 19.5c4.3 0 7.2-3 7.2-7.3 0-.5 0-.8-.1-1.2H12z",
+  lock:"M6 10V8a6 6 0 1 1 12 0v2h1v11H5V10h1zm2 0h8V8a4 4 0 1 0-8 0v2z",
+  users:"M16 14a4 4 0 0 1 4 4v3h-2v-3a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v3H4v-3a4 4 0 0 1 4-4h8zM12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z",
+  box:"M12 2l9 4.5v11L12 22l-9-4.5v-11L12 2zm0 2.3L5.5 7.5 12 10.7l6.5-3.2L12 4.3zM5 9.3v7l6 3v-7l-6-3zm14 0l-6 3v7l6-3v-7z",
+  chart:"M4 20V10h4v10H4zm6 0V4h4v16h-4zm6 0v-7h4v7h-4z",
+  plus:"M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z",
+  minus:"M5 11h14v2H5z",
+  trash:"M9 3h6l1 2h4v2H4V5h4l1-2zM6 8h12l-1 13H7L6 8z",
+  pen:"M3 17.2V21h3.8L18 9.8 14.2 6 3 17.2zM20.7 7.1a1 1 0 0 0 0-1.4l-2.4-2.4a1 1 0 0 0-1.4 0L15 5.2 18.8 9l1.9-1.9z",
+  back:"M15.4 7.4L14 6l-6 6 6 6 1.4-1.4L10.8 12z",
+  search:"M15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z",
+  file:"M14 2H6v20h12V8l-4-6zm0 2.5L17 8h-3V4.5zM8 12h8v2H8v-2zm0 4h8v2H8v-2z",
+  pdf:"M14 2H6v20h12V8l-4-6zm0 2.5L17 8h-3V4.5zM8.4 12.4h1.9c1 0 1.6.5 1.6 1.4s-.6 1.5-1.6 1.5h-.8v1.5h-1v-4.4zm1 .8v1.3h.7c.4 0 .7-.2.7-.6s-.3-.7-.7-.7h-.7z",
+  qr:"M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm8-2h3v3h-3v-3zm5 0h3v3h-3v-3zm-5 5h3v3h-3v-3zm5 0h3v3h-3v-3z",
+  check:"M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z",
+  x:"M18.3 5.7L12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3z",
+  out:"M10 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5v-2H5V5h5V3zm6.2 3.6L14.8 8l3 3H9v2h8.8l-3 3 1.4 1.4L21.6 12l-5.4-5.4z",
+  cart:"M7 18a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm10 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM3 3h2.2l.9 4H21l-2.6 8H7.4L5.6 5H3V3zm4.6 6l1 4h8.3l1.3-4H7.6z",
+  clock:"M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 5h-2v6l5 3 1-1.7-4-2.3V7z",
+  up:"M12 8l6 6H6z", down:"M12 16l-6-6h12z",
+  link:"M10.6 13.4a1 1 0 0 1 0-1.4l3-3a3 3 0 1 1 4.2 4.2l-1.2 1.2-1.4-1.4 1.2-1.2a1 1 0 1 0-1.4-1.4l-3 3a1 1 0 0 1-1.4 0zm2.8-2.8a1 1 0 0 1 0 1.4l-3 3a3 3 0 1 1-4.2-4.2l1.2-1.2 1.4 1.4-1.2 1.2a1 1 0 1 0 1.4 1.4l3-3a1 1 0 0 1 1.4 0z",
+  dl:"M12 3v10.2l3.6-3.6L17 11l-5 5-5-5 1.4-1.4L12 13.2V3zM5 19h14v2H5z",
+  up2:"M12 3l5 5-1.4 1.4L13 6.8V17h-2V6.8L8.4 9.4 7 8l5-5zM5 19h14v2H5z"
+};
+function Ic({n,s=16,c="currentColor",st}){
+  return (<svg width={s} height={s} viewBox="0 0 24 24" fill={c} style={{flex:"none",...st}} aria-hidden="true">
+    <path d={PATHS[n]||""}/></svg>);
+}
+
+function Shell({title,sub,right,children,crumbs}){
+  return (<div>
+    <header className="topbar noprint">
+      <div className="wrap"><div className="tb-row">
+        <div style={{minWidth:0}}>
+          <div className="tb-title">{title}</div>
+          {sub && <div className="tb-sub">{sub}</div>}
+        </div>
+        <div className="tb-spacer"></div>
+        {right}
+      </div></div>
+    </header>
+    <div className="wrap">
+      {crumbs && crumbs.length>0 && <nav className="crumb">
+        {crumbs.map((c,i)=>(<React.Fragment key={i}>
+          {i>0 && <span>›</span>}
+          {c.to ? <a href="#" onClick={e=>{e.preventDefault();go(c.to);}}>{c.t}</a> : <span style={{color:"var(--ink-2)"}}>{c.t}</span>}
+        </React.Fragment>))}
+      </nav>}
+      {children}
+    </div>
+  </div>);
+}
+
+function Modal({title,sub,onClose,children,footer,wide}){
+  useEffect(()=>{
+    const h=(e)=>{ if(e.key==="Escape") onClose&&onClose(); };
+    window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h);
+  },[onClose]);
+  return (<div className="ov" onMouseDown={e=>{ if(e.target===e.currentTarget && onClose) onClose(); }}>
+    <div className={"modal"+(wide?" wide":"")} onMouseDown={e=>e.stopPropagation()}>
+      <div className="modal-h">
+        <div style={{flex:1,minWidth:0}}>
+          <h3 style={{fontSize:16.5}}>{title}</h3>
+          {sub && <div className="hint" style={{marginTop:3}}>{sub}</div>}
+        </div>
+        {onClose && <button className="iconbtn" onClick={onClose} aria-label="ปิด"><Ic n="x" s={14}/></button>}
+      </div>
+      <div className="modal-b">{children}</div>
+      {footer && <div className="modal-f">{footer}</div>}
+    </div>
+  </div>);
+}
+
+function Msg({kind,children}){
+  if(!children) return null;
+  return <div className={"msg "+kind} style={{marginBottom:12}}>{children}</div>;
+}
+function Empty({icon,title,desc,action}){
+  return (<div className="empty">
+    <Ic n={icon||"box"} s={34} c="var(--pea-line)"/>
+    <div className="empty-t">{title}</div>
+    {desc && <div style={{fontSize:13}}>{desc}</div>}
+    {action && <div style={{marginTop:14}}>{action}</div>}
+  </div>);
+}
+function Loading({t}){
+  return <div className="center"><div style={{textAlign:"center"}}>
+    <span className="spin"></span>
+    <div style={{marginTop:10,color:"var(--ink-3)",fontSize:13.5}}>{t||"กำลังโหลด…"}</div>
+  </div></div>;
+}
+
+/* ── ช่องค้นหาแบบเลือกได้ทันที ── */
+function Typeahead({value,onPick,options,placeholder,render,emptyText,allowFree,onChangeText,autoFocus}){
+  const [q,setQ]=useState(value||"");
+  const [open,setOpen]=useState(false);
+  const [hi,setHi]=useState(0);
+  const box=useRef(null);
+  useEffect(()=>{ setQ(value||""); },[value]);
+  useEffect(()=>{
+    const h=(e)=>{ if(box.current && !box.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown",h); return ()=>document.removeEventListener("mousedown",h);
+  },[]);
+  const list = useMemo(()=>{
+    const s=q.trim().toLowerCase();
+    const arr = !s ? options : options.filter(o=>String(o.search||o.label).toLowerCase().indexOf(s)>=0);
+    return arr.slice(0,60);
+  },[q,options]);
+  const pick=(o)=>{ setQ(o.label); setOpen(false); onPick(o); };
+  return (<div className="ta" ref={box}>
+    <div style={{position:"relative"}}>
+      <input className="inp" value={q} autoFocus={autoFocus} placeholder={placeholder}
+        style={{paddingLeft:34}}
+        onChange={e=>{ setQ(e.target.value); setOpen(true); setHi(0); if(allowFree&&onChangeText) onChangeText(e.target.value); }}
+        onFocus={()=>setOpen(true)}
+        onKeyDown={e=>{
+          if(e.key==="ArrowDown"){ e.preventDefault(); setOpen(true); setHi(h=>Math.min(h+1,list.length-1)); }
+          else if(e.key==="ArrowUp"){ e.preventDefault(); setHi(h=>Math.max(h-1,0)); }
+          else if(e.key==="Enter"){ if(open&&list[hi]){ e.preventDefault(); pick(list[hi]); } }
+          else if(e.key==="Escape"){ setOpen(false); }
+        }}/>
+      <span style={{position:"absolute",left:11,top:"50%",transform:"translateY(-50%)",color:"var(--ink-3)",display:"flex"}}>
+        <Ic n="search" s={15}/></span>
+    </div>
+    {open && <div className="ta-list">
+      {list.length===0
+        ? <div className="ta-empty">{emptyText||"ไม่พบรายการที่ตรงกัน"}</div>
+        : list.map((o,i)=>(<div key={o.key||o.label} className={"ta-item"+(i===hi?" on":"")}
+            onMouseEnter={()=>setHi(i)} onMouseDown={e=>{e.preventDefault();pick(o);}}>
+            {render ? render(o) : o.label}
+          </div>))}
+    </div>}
+  </div>);
+}
+
+/* ── เลือกจำนวน 1–10 หรือพิมพ์เอง ── */
+function QtyPicker({value,onChange,max}){
+  const [free,setFree]=useState(!(value>=1&&value<=10));
+  useEffect(()=>{ if(value>10) setFree(true); },[value]);
+  if(free) return (<div style={{display:"flex",gap:6}}>
+    <input className="inp mono" type="number" min="1" max={max||99999} value={value}
+      style={{textAlign:"center"}}
+      onChange={e=>onChange(Math.max(1,parseInt(e.target.value||"1")))}/>
+    <button className="btn neutral sm" type="button" onClick={()=>{ setFree(false); onChange(1); }}>เลือก</button>
+  </div>);
+  return (<select className="inp mono" value={value} onChange={e=>{
+      if(e.target.value==="__more"){ setFree(true); onChange(11); } else onChange(parseInt(e.target.value)); }}>
+    {Array.from({length:10},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}
+    <option value="__more">พิมพ์จำนวนเอง…</option>
+  </select>);
+}
+
+/* ── dropdown ที่พิมพ์เพิ่มค่าใหม่ได้ (หน่วย / ประเภทย่อย) ── */
+function ComboBox({value,onChange,options,placeholder,addLabel}){
+  const [free,setFree]=useState(false);
+  useEffect(()=>{ if(value && options.indexOf(value)<0) setFree(true); },[]);
+  if(free) return (<div style={{display:"flex",gap:6}}>
+    <input className="inp" value={value} placeholder={placeholder} onChange={e=>onChange(e.target.value)} autoFocus/>
+    <button className="btn neutral sm" type="button" onClick={()=>{ setFree(false); onChange(options[0]||""); }}>เลือก</button>
+  </div>);
+  return (<select className="inp" value={value} onChange={e=>{
+      if(e.target.value==="__new"){ setFree(true); onChange(""); } else onChange(e.target.value); }}>
+    <option value="">— เลือก —</option>
+    {options.map(o=><option key={o} value={o}>{o}</option>)}
+    <option value="__new">{addLabel||"พิมพ์เพิ่มเอง…"}</option>
+  </select>);
+}
+
+/* ── QR ── */
+function QRBlock({url,label,size}){
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!ref.current) return;
+    ref.current.innerHTML="";
+    new QRCode(ref.current,{ text:url, width:size||190, height:size||190,
+      colorDark:"#4A1263", colorLight:"#ffffff", correctLevel:QRCode.CorrectLevel.M });
+  },[url,size]);
+  const dl=()=>{
+    const cv=ref.current.querySelector("canvas");
+    const img=ref.current.querySelector("img");
+    const src = cv ? cv.toDataURL("image/png") : (img?img.src:null);
+    if(!src) return;
+    const a=document.createElement("a"); a.href=src; a.download="QR-"+label+".png"; a.click();
+  };
+  return (<div style={{textAlign:"center"}}>
+    <div className="qrbox"><div ref={ref}></div></div>
+    <div style={{fontWeight:700,fontSize:13,marginTop:8}}>{label}</div>
+    <div style={{display:"flex",gap:6,justifyContent:"center",marginTop:8}}>
+      <button className="btn neutral xs" onClick={dl}><Ic n="dl" s={12}/> บันทึก PNG</button>
+      <button className="btn neutral xs" onClick={()=>{navigator.clipboard.writeText(url);}}><Ic n="link" s={12}/> คัดลอกลิงก์</button>
+    </div>
+  </div>);
+}
+
+/* ═══════════════ หน้า 1 — เข้าสู่ระบบ ═══════════════ */
+function Page1Login({accounts}){
+  const [pick,setPick]  = useState(null);
+  const [email,setEmail]= useState("");
+  const [pw,setPw]      = useState("");
+  const [err,setErr]    = useState("");
+  const [busy,setBusy]  = useState(false);
+
+  useEffect(()=>{ if(pick) setEmail((accounts[pick.id]&&accounts[pick.id].email)||""); },[pick]);
+
+  const masterIn = async () => {
+    setErr(""); setBusy(true);
+    try{
+      const p=new firebase.auth.GoogleAuthProvider();
+      p.setCustomParameters({ prompt:"select_account" });
+      const res=await auth.signInWithPopup(p);
+      if(String(res.user.email||"").toLowerCase()!==MASTER_EMAIL){
+        await auth.signOut();
+        setErr("บัญชี "+res.user.email+" ไม่ใช่แอดมินหลักของระบบ");
+      }
+    }catch(e){ setErr(authErr(e)); }
+    setBusy(false);
+  };
+
+  const officeIn = async () => {
+    setErr("");
+    if(!email.trim()||!pw){ setErr("กรอกอีเมลและรหัสผ่านให้ครบ"); return; }
+    setBusy(true);
+    try{
+      const res=await auth.signInWithEmailAndPassword(email.trim(),pw);
+      const acc=accounts[pick.id];
+      if(!acc || acc.uid!==res.user.uid){
+        await auth.signOut();
+        setErr("บัญชีนี้ไม่มีสิทธิ์เข้า "+pick.name+" — ติดต่อแอดมินหลักเพื่อผูกบัญชี");
+      }
+    }catch(e){ setErr(authErr(e)); }
+    setBusy(false);
+  };
+
+  return (<Shell
+    title="ระบบจัดการอุปกรณ์ความปลอดภัยฯ"
+    sub="กฟจ.ลำพูน และ กฟส.ในสังกัด · การไฟฟ้าส่วนภูมิภาค"
+    right={<button className="btn ghost sm" onClick={()=>go("accounts")}>
+      <Ic n="wrench" s={15}/> จัดการบัญชีผู้ใช้</button>}>
+
+    <div style={{maxWidth:640,margin:"26px auto 0"}}>
+      <div className="card card-p" style={{textAlign:"center",borderColor:"var(--pea-line)"}}>
+        <div className="eyebrow" style={{display:"inline-block"}}>แอดมินหลัก</div>
+        <h2 style={{fontSize:19,margin:"11px 0 5px"}}>เข้าสู่ระบบด้วยบัญชี Google</h2>
+        <p className="hint" style={{margin:"0 0 15px"}}>ดูแลและแก้ไขข้อมูลได้ทั้ง 10 หน่วยงาน</p>
+        <button className="btn block" onClick={masterIn} disabled={busy} style={{maxWidth:300,margin:"0 auto"}}>
+          {busy?<span className="spin" style={{borderColor:"rgba(255,255,255,.4)",borderTopColor:"#fff"}}></span>:<Ic n="google" s={17}/>} Master Login
+        </button>
+      </div>
+    </div>
+
+    <div className="sec-head" style={{marginTop:30}}>
+      <h2>เข้าสู่ระบบรายหน่วยงาน</h2>
+      <div className="tb-spacer"></div>
+      <span className="hint">ใช้อีเมลและรหัสผ่านที่แอดมินหลักตั้งให้</span>
+    </div>
+    <div className="ofgrid">
+      {OFFICES.map((o,i)=>{
+        const has=!!accounts[o.id];
+        return (<button key={o.id} className="ofcard" onClick={()=>{ setErr(""); setPw(""); setPick(o); }}>
+          <div className="ofnum">{i+1}</div>
+          <div style={{minWidth:0}}>
+            <div className="ofname">{o.name}</div>
+            <div className="ofmeta">{has?"ตั้งค่าบัญชีแล้ว":"ยังไม่ได้ตั้งบัญชี"}</div>
+          </div>
+          <div style={{marginLeft:"auto",color:has?"var(--ok)":"var(--ink-3)",display:"flex"}}>
+            <Ic n={has?"lock":"x"} s={15}/></div>
+        </button>);
+      })}
+    </div>
+
+    <div style={{marginTop:26,display:"flex",gap:10,flexWrap:"wrap"}}>
+      <button className="btn neutral sm" onClick={()=>go("dashboard")}>
+        <Ic n="chart" s={14}/> Dashboard ประวัติการเบิกจ่าย (สาธารณะ)</button>
+    </div>
+
+    {pick && <Modal title={"เข้าสู่ระบบ · "+pick.name} sub="กรอกอีเมลและรหัสผ่านประจำหน่วยงาน"
+      onClose={()=>{setPick(null);setErr("");}}
+      footer={<>
+        <button className="btn neutral" onClick={()=>{setPick(null);setErr("");}}>ยกเลิก</button>
+        <button className="btn" onClick={officeIn} disabled={busy}>
+          {busy&&<span className="spin" style={{borderColor:"rgba(255,255,255,.4)",borderTopColor:"#fff"}}></span>} เข้าสู่ระบบ</button>
+      </>}>
+      <Msg kind="e">{err}</Msg>
+      <div className="field"><label className="lbl">อีเมล</label>
+        <input className="inp" type="email" value={email} autoFocus autoComplete="username"
+          onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==="Enter"&&officeIn()}/></div>
+      <div className="field"><label className="lbl">รหัสผ่าน</label>
+        <input className="inp" type="password" value={pw} autoComplete="current-password"
+          onChange={e=>setPw(e.target.value)} onKeyDown={e=>e.key==="Enter"&&officeIn()}/></div>
+      <button className="btn neutral sm" style={{marginTop:2}} onClick={async()=>{
+        if(!email.trim()){ setErr("กรอกอีเมลก่อน แล้วกดปุ่มนี้อีกครั้ง"); return; }
+        try{ await auth.sendPasswordResetEmail(email.trim()); setErr(""); alert("ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ "+email+" แล้ว"); }
+        catch(e){ setErr(authErr(e)); }
+      }}>ลืมรหัสผ่าน — ส่งลิงก์ตั้งใหม่ทางอีเมล</button>
+    </Modal>}
+
+    {err && !pick && <div style={{maxWidth:640,margin:"18px auto 0"}}><Msg kind="e">{err}</Msg></div>}
+  </Shell>);
+}
+
+function authErr(e){
+  const c=(e&&e.code)||"";
+  const M={
+    "auth/invalid-credential":"อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+    "auth/wrong-password":"อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+    "auth/user-not-found":"ไม่พบบัญชีนี้ในระบบ",
+    "auth/invalid-email":"รูปแบบอีเมลไม่ถูกต้อง",
+    "auth/too-many-requests":"ลองผิดหลายครั้งเกินไป กรุณารอสักครู่",
+    "auth/network-request-failed":"เชื่อมต่ออินเทอร์เน็ตไม่ได้",
+    "auth/popup-closed-by-user":"ปิดหน้าต่างล็อกอินก่อนเสร็จ",
+    "auth/popup-blocked":"เบราว์เซอร์บล็อกป๊อปอัป — อนุญาตแล้วลองใหม่",
+    "auth/operation-not-allowed":"ยังไม่ได้เปิดวิธีล็อกอินนี้ใน Firebase Console",
+    "auth/weak-password":"รหัสผ่านสั้นเกินไป — ต้องอย่างน้อย 6 ตัวอักษร",
+    "auth/email-already-in-use":"อีเมลนี้ถูกใช้แล้ว"
+  };
+  return M[c] || ("ดำเนินการไม่สำเร็จ: "+((e&&e.message)||c));
+}
+
+/* ═══════════════ หน้า 2 — จัดการบัญชีผู้ใช้ ═══════════════ */
+function Page2Accounts({accounts,isMaster,user}){
+  const [edit,setEdit]=useState(null);
+  const [email,setEmail]=useState("");
+  const [pw,setPw]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [err,setErr]=useState("");
+  const [ok,setOk]=useState("");
+
+  const open=(o)=>{ setEdit(o); setEmail((accounts[o.id]&&accounts[o.id].email)||""); setPw(""); setErr(""); };
+
+  const save=async()=>{
+    setErr("");
+    const em=email.trim().toLowerCase();
+    if(!em||em.indexOf("@")<0){ setErr("กรอกอีเมลให้ถูกต้อง"); return; }
+    if(!pw||pw.length<6){ setErr("รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร"); return; }
+    const dup=Object.entries(accounts).find(([oid,a])=>oid!==edit.id && a.email===em);
+    if(dup){ setErr("อีเมลนี้ผูกกับ "+OFC[dup[0]]+" อยู่แล้ว — ใช้อีเมลละหน่วยงาน"); return; }
+    setBusy(true);
+    const sec=secondaryAuth();
+    try{
+      let uid=null;
+      try{
+        const cred=await sec.createUserWithEmailAndPassword(em,pw);
+        uid=cred.user.uid;
+      }catch(e){
+        const c=e.code||"";
+        /* มีบัญชีอยู่แล้ว → ล็อกอินเพื่อยืนยันรหัสผ่านและดึง uid
+           (เปิด Email enumeration protection ไว้ Firebase อาจไม่ส่ง code ตรงๆ จึงลองซ้ำเสมอ) */
+        if(c==="auth/weak-password"||c==="auth/invalid-email"||c==="auth/operation-not-allowed") throw e;
+        try{
+          const cred=await sec.signInWithEmailAndPassword(em,pw);
+          uid=cred.user.uid;
+        }catch(e2){ throw (c==="auth/email-already-in-use"||c==="") ? e2 : e; }
+      }
+      await sec.signOut();
+      await R("accounts/"+edit.id).set({ email:em, uid, updatedAt:nowTs(), updatedBy:user.email });
+      setOk("บันทึกบัญชีของ "+edit.name+" แล้ว");
+      setEdit(null); setTimeout(()=>setOk(""),4500);
+    }catch(e){
+      setErr((e.code==="auth/wrong-password"||e.code==="auth/invalid-credential")
+        ? "อีเมลนี้มีบัญชีอยู่แล้วแต่รหัสผ่านไม่ตรง — ใช้ปุ่ม “ส่งลิงก์ตั้งรหัสใหม่” แทน"
+        : authErr(e));
+    }
+    setBusy(false);
+  };
+
+  const revoke=async(o)=>{
+    if(!confirm("ยกเลิกสิทธิ์เข้าใช้งานของ "+o.name+"?\n\nบัญชีจะเข้าระบบไม่ได้อีก จนกว่าจะตั้งค่าใหม่")) return;
+    await R("accounts/"+o.id).remove();
+    setOk("ยกเลิกสิทธิ์ "+o.name+" แล้ว"); setTimeout(()=>setOk(""),4500);
+  };
+
+  if(!isMaster) return (<Shell title="จัดการบัญชีผู้ใช้" crumbs={[{t:"หน้าหลัก",to:""},{t:"จัดการบัญชีผู้ใช้"}]}>
+    <div className="card card-p" style={{marginTop:20}}>
+      <Msg kind="e">หน้านี้เข้าได้เฉพาะแอดมินหลัก — กรุณาเข้าสู่ระบบด้วย Master Login</Msg>
+      <button className="btn" onClick={()=>go("")}>กลับหน้าเข้าสู่ระบบ</button>
+    </div></Shell>);
+
+  return (<Shell title="จัดการบัญชีผู้ใช้" sub="ตั้งอีเมลและรหัสผ่านของแอดมินประจำหน่วยงาน"
+    right={<button className="btn ghost sm" onClick={()=>go("")}><Ic n="back" s={15}/> หน้าหลัก</button>}
+    crumbs={[{t:"หน้าหลัก",to:""},{t:"จัดการบัญชีผู้ใช้"}]}>
+
+    {ok && <Msg kind="s">{ok}</Msg>}
+    <div className="msg i" style={{marginBottom:14}}>
+      <div>รหัสผ่านถูกเก็บในระบบยืนยันตัวตนของ Firebase (เข้ารหัสฝั่งเซิร์ฟเวอร์) ไม่มีการฝังไว้ในโค้ดหน้าเว็บ
+      — ระบบเก็บเฉพาะ “อีเมล” กับ “รหัสผู้ใช้ (uid)” ไว้ผูกกับหน่วยงานเท่านั้น</div>
+    </div>
+
+    <div className="tblwrap">
+      <table className="t">
+        <thead><tr>
+          <th style={{width:38}}>#</th><th>หน่วยงาน</th><th>อีเมลที่ใช้เข้าระบบ</th>
+          <th style={{width:120}}>สถานะ</th><th style={{width:230}}></th>
+        </tr></thead>
+        <tbody>{OFFICES.map((o,i)=>{
+          const a=accounts[o.id];
+          return (<tr key={o.id}>
+            <td className="mono" style={{color:"var(--ink-3)"}}>{i+1}</td>
+            <td style={{fontWeight:700}}>{o.name}</td>
+            <td className="mono" style={{fontSize:12.5}}>{a?a.email:<span style={{color:"var(--ink-3)"}}>— ยังไม่ได้ตั้ง —</span>}</td>
+            <td>{a?<span className="chip g"><Ic n="check" s={11}/> ใช้งานได้</span>:<span className="chip n">ปิดอยู่</span>}</td>
+            <td>
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                <button className="btn ghost xs" onClick={()=>open(o)}><Ic n="pen" s={12}/> {a?"แก้ไข":"ตั้งค่า"}</button>
+                {a && <button className="btn neutral xs" onClick={async()=>{
+                  try{ await auth.sendPasswordResetEmail(a.email); alert("ส่งลิงก์ตั้งรหัสผ่านใหม่ไปที่ "+a.email+" แล้ว"); }
+                  catch(e){ alert(authErr(e)); } }}>ส่งลิงก์ตั้งรหัสใหม่</button>}
+                {a && <button className="btn bad xs" onClick={()=>revoke(o)}><Ic n="x" s={11}/> ยกเลิกสิทธิ์</button>}
+              </div>
+            </td>
+          </tr>);
+        })}</tbody>
+      </table>
+    </div>
+
+    {edit && <Modal title={"ตั้งค่าบัญชี · "+edit.name}
+      sub="แอดมินประจำหน่วยงานจะใช้อีเมลและรหัสผ่านนี้เข้าระบบ"
+      onClose={()=>setEdit(null)}
+      footer={<>
+        <button className="btn neutral" onClick={()=>setEdit(null)}>ยกเลิก</button>
+        <button className="btn" onClick={save} disabled={busy}>
+          {busy&&<span className="spin" style={{borderColor:"rgba(255,255,255,.4)",borderTopColor:"#fff"}}></span>} บันทึก</button>
+      </>}>
+      <Msg kind="e">{err}</Msg>
+      <div className="field"><label className="lbl">อีเมล <span className="req">*</span></label>
+        <input className="inp mono" type="email" value={email} autoFocus
+          placeholder="เช่น ppe.pasang@gmail.com" onChange={e=>setEmail(e.target.value)}/></div>
+      <div className="field"><label className="lbl">รหัสผ่าน <span className="req">*</span></label>
+        <input className="inp mono" type="text" value={pw} placeholder="อย่างน้อย 6 ตัวอักษร"
+          onChange={e=>setPw(e.target.value)}/>
+        <div className="hint" style={{marginTop:5}}>
+          ถ้าอีเมลนี้ยังไม่มีบัญชี ระบบจะสร้างให้พร้อมรหัสผ่านนี้ · ถ้ามีบัญชีอยู่แล้ว ให้กรอกรหัสผ่านเดิมเพื่อผูกเข้ากับหน่วยงาน
+          หรือกด “ส่งลิงก์ตั้งรหัสใหม่” ในตาราง
+        </div></div>
+    </Modal>}
+  </Shell>);
+}
+
+/* ═══════════════ หน้า 3 — หน้าหลักของแต่ละหน่วยงาน ═══════════════ */
+function Page3Office({office,user,isMaster,onLogout,stock,people}){
+  const [qr,setQr]=useState(false);
+  const wUrl = location.origin+location.pathname+"#/w/"+office.id;
+  const totalQty = useMemo(()=>Object.values(stock||{}).reduce((s,v)=>s+(v.qty||0),0),[stock]);
+  const lowCount = useMemo(()=>Object.values(stock||{}).filter(v=>(v.qty||0)>0&&(v.qty||0)<=3).length,[stock]);
+
+  return (<Shell title={office.name} sub="ระบบจัดการอุปกรณ์ความปลอดภัยฯ"
+    right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+      <span style={{fontSize:12,opacity:.85}} className="mono">{user.email}</span>
+      {isMaster && <button className="btn ghost sm" onClick={()=>go("")}>เปลี่ยนหน่วยงาน</button>}
+      <button className="btn ghost sm" onClick={onLogout}><Ic n="out" s={14}/> ออกจากระบบ</button>
+    </div>}
+    crumbs={[{t:"หน้าหลัก",to:""},{t:office.name}]}>
+
+    <div className="grid3" style={{marginTop:6,marginBottom:20}}>
+      <div className="card card-p"><div className="hint">รายชื่อพนักงาน</div>
+        <div style={{fontSize:26,fontWeight:800}} className="mono">{Object.keys(people||{}).length}</div></div>
+      <div className="card card-p"><div className="hint">จำนวนของคงคลังรวม</div>
+        <div style={{fontSize:26,fontWeight:800}} className="mono">{totalQty}</div></div>
+      <div className="card card-p" style={lowCount?{borderColor:"#EDD9C2",background:"var(--warn-soft)"}:null}>
+        <div className="hint">รายการที่เหลือน้อย (≤3)</div>
+        <div style={{fontSize:26,fontWeight:800,color:lowCount?"var(--warn)":"inherit"}} className="mono">{lowCount}</div></div>
+    </div>
+
+    <div className="tiles">
+      <button className="tile" onClick={()=>go("office/"+office.id+"/roster")}>
+        <div className="tile-ic"><Ic n="users" s={20}/></div>
+        <div className="tile-t">จัดการรายชื่อ</div>
+        <div className="tile-d">เพิ่ม แก้ไข นำเข้า/ส่งออกรายชื่อพนักงาน พร้อมเรียงลำดับตามตำแหน่ง</div>
+      </button>
+      <button className="tile" onClick={()=>go("office/"+office.id+"/items")}>
+        <div className="tile-ic"><Ic n="box" s={20}/></div>
+        <div className="tile-t">จัดการรายการอุปกรณ์ความปลอดภัยฯ</div>
+        <div className="tile-d">เติมของเข้าคลัง และดูรายการคงคลังทั้งหมด</div>
+      </button>
+      <button className="tile" onClick={()=>go("dashboard")}>
+        <div className="tile-ic"><Ic n="chart" s={20}/></div>
+        <div className="tile-t">ตรวจสอบประวัติการเบิกจ่าย</div>
+        <div className="tile-d">ค้นหาย้อนหลังทุกหน่วยงาน กรองตามคน วันที่ และรายการ</div>
+      </button>
+    </div>
+
+    <div className="sec-head"><h2>QR Code สำหรับพนักงานเบิกของ</h2></div>
+    <div className="card card-p" style={{display:"flex",gap:22,alignItems:"center",flexWrap:"wrap"}}>
+      <QRBlock url={wUrl} label={office.name} size={160}/>
+      <div style={{flex:1,minWidth:230}}>
+        <p style={{marginTop:0}}>ติด QR นี้ไว้หน้าคลังอุปกรณ์ของ <b>{office.name}</b> พนักงานสแกนแล้วพิมพ์รหัสประจำตัวเพื่อเบิกของได้ทันที โดยไม่ต้องล็อกอิน</p>
+        <div className="mono" style={{fontSize:11.5,background:"#FAF8FC",border:"1px solid var(--line)",
+          borderRadius:8,padding:"8px 10px",wordBreak:"break-all",color:"var(--ink-2)"}}>{wUrl}</div>
+        <button className="btn ghost sm" style={{marginTop:10}} onClick={()=>window.open(wUrl,"_blank")}>
+          <Ic n="link" s={14}/> เปิดหน้าเบิกของ</button>
+      </div>
+    </div>
+  </Shell>);
+}
+
+/* ═══════════════ หน้า 4 — จัดการรายชื่อ ═══════════════ */
+function Page4Roster({office,people}){
+  const [form,setForm]   = useState({empId:"",fullName:"",position:"",department:""});
+  const [editId,setEditId]=useState(null);
+  const [show,setShow]   = useState(false);
+  const [q,setQ]         = useState("");
+  const [censor,setCensor]=useState(true);
+  const [msg,setMsg]     = useState("");
+  const [err,setErr]     = useState("");
+  const fileRef=useRef(null);
+  const base = "offices/"+office.id+"/people";
+
+  const list = useMemo(()=>{
+    const arr=Object.entries(people||{}).map(([id,p])=>({id,...p}));
+    const s=q.trim().toLowerCase();
+    const f=!s?arr:arr.filter(p=>
+      (p.fullName||"").toLowerCase().indexOf(s)>=0 ||
+      (p.empId||"").toLowerCase().indexOf(s)>=0 ||
+      (p.position||"").toLowerCase().indexOf(s)>=0 ||
+      (p.department||"").toLowerCase().indexOf(s)>=0);
+    return sortPersonnel(f);
+  },[people,q]);
+
+  const flash=(t)=>{ setMsg(t); setTimeout(()=>setMsg(""),4000); };
+  const reset=()=>{ setForm({empId:"",fullName:"",position:"",department:""}); setEditId(null); setShow(false); setErr(""); };
+
+  const save=async()=>{
+    setErr("");
+    if(!form.fullName.trim()){ setErr("กรอกชื่อ-นามสกุล"); return; }
+    if(!form.empId.trim()){ setErr("กรอกรหัสประจำตัว — ใช้เป็นรหัสที่พนักงานพิมพ์ตอนเบิกของ"); return; }
+    const dup=Object.entries(people||{}).find(([id,p])=>id!==editId && String(p.empId||"").trim()===form.empId.trim());
+    if(dup){ setErr("รหัสประจำตัว "+form.empId+" ซ้ำกับ "+dup[1].fullName); return; }
+    const data={ empId:form.empId.trim(), fullName:form.fullName.trim(),
+                 position:form.position.trim(), department:form.department.trim() };
+    if(editId) await R(base+"/"+editId).update(data);
+    else       await R(base).push(data);
+    flash(editId?"บันทึกการแก้ไขแล้ว":"เพิ่มรายชื่อแล้ว"); reset();
+  };
+
+  const del=async(p)=>{
+    if(!confirm("ลบ “"+p.fullName+"” ออกจากรายชื่อ?")) return;
+    await R(base+"/"+p.id).remove(); flash("ลบรายชื่อแล้ว");
+  };
+  const delAll=async()=>{
+    const n=Object.keys(people||{}).length;
+    if(!n) return;
+    if(!confirm("ลบรายชื่อทั้งหมดของ "+office.name+" ("+n+" คน)?\n\nประวัติการเบิกจ่ายเดิมจะยังอยู่")) return;
+    await R(base).remove(); flash("ลบรายชื่อทั้งหมดแล้ว");
+  };
+
+  const doImport=(e)=>{
+    const f=e.target.files[0]; if(!f) return;
+    const rd=new FileReader();
+    rd.onload=async(ev)=>{
+      try{
+        const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array"});
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,blankrows:false});
+        if(rows.length<2){ setErr("ไม่พบข้อมูลในไฟล์"); return; }
+        const hd=rows[0].map(h=>String(h||"").toLowerCase().trim());
+        const col=(...k)=>{ for(const key of k){ const i=hd.findIndex(h=>h.indexOf(key)>=0); if(i>=0) return i; } return -1; };
+        const cId=col("รหัส","emp","id"), cNm=col("ชื่อ","name"),
+              cPo=col("ตำแหน่ง","position"), cDe=col("สังกัด","แผนก","dept");
+        if(cNm<0){ setErr("ไม่พบคอลัมน์ “ชื่อ-นามสกุล” ในไฟล์"); return; }
+        const known=new Set(Object.values(people||{}).map(p=>String(p.empId||"").trim()));
+        const up={}; let n=0, skip=0;
+        for(let i=1;i<rows.length;i++){
+          const r=rows[i]; const nm=String((r&&r[cNm])||"").trim(); if(!nm) continue;
+          const id=cId>=0?String(r[cId]||"").trim():"";
+          if(id && known.has(id)){ skip++; continue; }
+          if(id) known.add(id);
+          const key=R(base).push().key;
+          up[key]={ empId:id, fullName:nm,
+                    position:cPo>=0?String(r[cPo]||"").trim():"",
+                    department:cDe>=0?String(r[cDe]||"").trim():"" };
+          n++;
+        }
+        if(!n){ setErr("ไม่มีรายชื่อใหม่ให้เพิ่ม"+(skip?" (ข้ามรหัสซ้ำ "+skip+" รายการ)":"")); return; }
+        await R(base).update(up);
+        setErr(""); flash("นำเข้า "+n+" รายชื่อแล้ว"+(skip?" · ข้ามรหัสซ้ำ "+skip+" รายการ":""));
+      }catch(ex){ setErr("อ่านไฟล์ไม่สำเร็จ: "+ex.message); }
+    };
+    rd.readAsArrayBuffer(f); e.target.value="";
+  };
+
+  const doExport=()=>{
+    if(!list.length) return;
+    exportXLSX(list.map((p,i)=>({
+      "ลำดับ":i+1, "รหัสประจำตัว":p.empId||"",
+      "ชื่อ-นามสกุล":censor?censorName(p.fullName):p.fullName,
+      "ตำแหน่ง":p.position||"", "สังกัด":p.department||""
+    })),"รายชื่อ","รายชื่อพนักงาน-"+office.name+(censor?"-เซ็นเซอร์":"")+".xlsx",[7,15,32,20,14]);
+  };
+
+  return (<Shell title="จัดการรายชื่อ" sub={office.name}
+    right={<button className="btn ghost sm" onClick={()=>go("office/"+office.id)}><Ic n="back" s={15}/> ย้อนกลับ</button>}
+    crumbs={[{t:"หน้าหลัก",to:""},{t:office.name,to:"office/"+office.id},{t:"จัดการรายชื่อ"}]}>
+
+    {msg && <Msg kind="s">{msg}</Msg>}
+    {err && <Msg kind="e">{err}</Msg>}
+
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+      <button className="btn" onClick={()=>{reset();setShow(true);}}><Ic n="plus" s={15}/> เพิ่มรายชื่อ</button>
+      <button className="btn ghost" onClick={()=>fileRef.current.click()}><Ic n="up2" s={15}/> นำเข้ารายชื่อ</button>
+      <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={doImport}/>
+      <button className="btn ghost" onClick={doExport} disabled={!list.length}><Ic n="dl" s={15}/> ส่งออกรายชื่อ</button>
+      <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--ink-2)",
+        background:"#fff",border:"1px solid var(--line)",borderRadius:8,padding:"7px 11px",cursor:"pointer"}}>
+        <input type="checkbox" checked={censor} onChange={e=>setCensor(e.target.checked)}/> เซ็นเซอร์นามสกุล
+      </label>
+      <div className="tb-spacer"></div>
+      {list.length>0 && <button className="btn bad sm" onClick={delAll}><Ic n="trash" s={12}/> ลบทั้งหมด</button>}
+    </div>
+
+    <div className="msg i" style={{marginBottom:12,fontWeight:400}}>
+      <div><b>รูปแบบไฟล์นำเข้า</b> — แถวแรกเป็นหัวตาราง: <b>รหัสประจำตัว | ชื่อ-นามสกุล | ตำแหน่ง | สังกัด</b>
+      &nbsp;(ระบบหาคอลัมน์ให้อัตโนมัติ และข้ามรหัสที่มีอยู่แล้ว) — ใช้ไฟล์ที่ส่งออกจากระบบลงทะเบียน Safety Talk ได้เลย</div>
+    </div>
+
+    <div style={{marginBottom:12,maxWidth:380}}>
+      <input className="inp" placeholder="ค้นหาชื่อ รหัส ตำแหน่ง หรือสังกัด…" value={q} onChange={e=>setQ(e.target.value)}/>
+    </div>
+
+    <div className="tblwrap">
+      {list.length===0
+        ? <Empty icon="users" title="ยังไม่มีรายชื่อ" desc="กดเพิ่มรายชื่อ หรือนำเข้าจากไฟล์ Excel"/>
+        : <table className="t"><thead><tr>
+            <th style={{width:40}}>#</th><th style={{width:110}}>รหัส</th><th>ชื่อ-นามสกุล</th>
+            <th style={{width:130}}>ตำแหน่ง</th><th style={{width:100}}>สังกัด</th><th style={{width:82}}></th>
+          </tr></thead><tbody>
+          {list.map((p,i)=>(<tr key={p.id}>
+            <td className="mono" style={{color:"var(--ink-3)"}}>{i+1}</td>
+            <td className="mono" style={{fontSize:12.5}}>{p.empId||"-"}</td>
+            <td style={{fontWeight:600}}>{censor?censorName(p.fullName):p.fullName}</td>
+            <td style={{fontSize:12.5,color:"var(--ink-2)"}}>{p.position||"-"}</td>
+            <td style={{fontSize:12.5,color:"var(--ink-2)"}}>{p.department||"-"}</td>
+            <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
+              <button className="iconbtn" title="แก้ไข" onClick={()=>{
+                setEditId(p.id); setForm({empId:p.empId||"",fullName:p.fullName||"",
+                  position:p.position||"",department:p.department||""}); setShow(true); setErr("");
+              }}><Ic n="pen" s={13}/></button>
+              <button className="iconbtn danger" title="ลบ" onClick={()=>del(p)}><Ic n="trash" s={13}/></button>
+            </div></td>
+          </tr>))}
+        </tbody></table>}
+    </div>
+    <div className="hint" style={{marginTop:8}}>รวม {list.length} คน · เรียงตามกลุ่ม → สังกัด → ตำแหน่ง (แพตเทิร์นเดียวกับระบบลงทะเบียน Safety Talk)</div>
+
+    {show && <Modal title={editId?"แก้ไขรายชื่อ":"เพิ่มรายชื่อ"} sub={office.name} onClose={reset}
+      footer={<><button className="btn neutral" onClick={reset}>ยกเลิก</button>
+              <button className="btn" onClick={save}>บันทึก</button></>}>
+      <Msg kind="e">{err}</Msg>
+      <div className="grid2">
+        <div className="field"><label className="lbl">รหัสประจำตัว <span className="req">*</span></label>
+          <input className="inp mono" value={form.empId} autoFocus
+            onChange={e=>setForm({...form,empId:e.target.value})}/></div>
+        <div className="field"><label className="lbl">ชื่อ-นามสกุล <span className="req">*</span></label>
+          <input className="inp" value={form.fullName} placeholder="นายเกียรติพงษ์ นุ่มนวล"
+            onChange={e=>setForm({...form,fullName:e.target.value})}/></div>
+        <div className="field"><label className="lbl">ตำแหน่ง</label>
+          <input className="inp" value={form.position} placeholder="เช่น พชง.6, ชชง., คนงาน (ก่อสร้าง 1)"
+            onChange={e=>setForm({...form,position:e.target.value})}/></div>
+        <div className="field"><label className="lbl">สังกัด / แผนก</label>
+          <input className="inp" value={form.department} placeholder="เช่น ผกส., ผปบ."
+            onChange={e=>setForm({...form,department:e.target.value})}/></div>
+      </div>
+      {form.fullName.trim() && <div className="hint">แสดงบนหน้าสาธารณะเป็น: <b>{censorName(form.fullName)}</b></div>}
+    </Modal>}
+  </Shell>);
+}
+
+/* ═══════════════ หน้า 5 — จัดการรายการอุปกรณ์ความปลอดภัยฯ ═══════════════ */
+function Page5Items({office,stock}){
+  const n=Object.values(stock||{}).filter(s=>(s.qty||0)>0).length;
+  return (<Shell title="จัดการรายการอุปกรณ์ความปลอดภัยฯ" sub={office.name}
+    right={<button className="btn ghost sm" onClick={()=>go("office/"+office.id)}><Ic n="back" s={15}/> ย้อนกลับ</button>}
+    crumbs={[{t:"หน้าหลัก",to:""},{t:office.name,to:"office/"+office.id},{t:"จัดการรายการอุปกรณ์ฯ"}]}>
+    <div className="tiles" style={{marginTop:10}}>
+      <button className="tile" onClick={()=>go("office/"+office.id+"/stock-in")}>
+        <div className="tile-ic"><Ic n="plus" s={20}/></div>
+        <div className="tile-t">เพิ่มรายการเข้าคลัง</div>
+        <div className="tile-d">บันทึกของที่รับเข้าคลัง เลือกวันที่ ชนิด ตัวเลือกย่อย จำนวน และหน่วย</div>
+      </button>
+      <button className="tile" onClick={()=>go("office/"+office.id+"/stock")}>
+        <div className="tile-ic"><Ic n="box" s={20}/></div>
+        <div className="tile-t">ดูรายการคงคลัง</div>
+        <div className="tile-d">ตารางของคงเหลือ เรียงจากศีรษะลงถึงเท้า · ส่งออก PDF และ Excel
+          {n>0 && <> · ขณะนี้ {n} รายการ</>}</div>
+      </button>
+    </div>
+  </Shell>);
+}
+
+/* ═══════════════ หน้า 6 — เพิ่มรายการเข้าคลัง ═══════════════ */
+function VariantFields({item,val,onChange,subTypes}){
+  if(!item || item.variant==="none") return null;
+  const sizes=sizeOptions(item.variant);
+  const isColor=item.variant==="color";
+  return (<>
+    {!isColor && <div className="field">
+      <label className="lbl">ประเภทย่อย <span className="req">*</span></label>
+      <ComboBox value={val.subType} onChange={v=>onChange({...val,subType:v})}
+        options={subTypes} placeholder={"เช่น "+(SEED_SUBTYPES[item.variant]||[""])[0]}
+        addLabel="พิมพ์ประเภทย่อยใหม่…"/>
+    </div>}
+    <div className="field">
+      <label className="lbl">{VARIANT_LABEL[item.variant]} <span className="req">*</span></label>
+      {isColor
+        ? <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {HELMET_COLORS.map(c=>(
+              <button key={c.v} type="button" className={"chip clk"+(val.size===c.v?"":" n")}
+                onClick={()=>onChange({...val,size:c.v})}
+                style={val.size===c.v?{borderColor:"var(--pea)",background:"var(--pea-soft)"}:null}>
+                <span className="dotc" style={{background:c.hex}}></span>{c.v}
+              </button>))}
+          </div>
+        : <select className="inp mono" value={val.size} onChange={e=>onChange({...val,size:e.target.value})}>
+            <option value="">— เลือก{VARIANT_LABEL[item.variant]} —</option>
+            {sizes.map(s=><option key={s} value={s}>{s}</option>)}
+          </select>}
+    </div>
+  </>);
+}
+
+function Page6StockIn({office,catalog,freq,user}){
+  const blank={ itemId:"", subType:"", size:"", qty:1, unit:"" };
+  const [date,setDate]=useState(todayISO());
+  const [row,setRow]  = useState(blank);
+  const [pending,setPending]=useState([]);
+  const [err,setErr]=useState("");
+  const [msg,setMsg]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [mgr,setMgr]=useState(false);
+
+  const items = useMemo(()=>{
+    const arr=Object.entries(catalog||{}).map(([id,c])=>({id,...c}));
+    return arr.sort((a,b)=>{
+      const fa=(freq&&freq[a.id])||0, fb=(freq&&freq[b.id])||0;
+      if(fa!==fb) return fb-fa;                               // ใช้บ่อยขึ้นก่อน
+      const za=ZONE_IX[a.zone]??9, zb=ZONE_IX[b.zone]??9;
+      if(za!==zb) return za-zb;
+      return (a.order||0)-(b.order||0);
+    });
+  },[catalog,freq]);
+
+  const item = items.find(i=>i.id===row.itemId);
+  const subTypes = useMemo(()=>{
+    if(!item) return [];
+    const seeded=SEED_SUBTYPES[item.variant]||[];
+    const saved=Object.values(item.subTypes||{});
+    return Array.from(new Set([...seeded,...saved]));
+  },[item]);
+
+  const unitOptions = useMemo(()=>{
+    const used=Object.entries((freq&&freq.__units)||{}).sort((a,b)=>b[1]-a[1]).map(a=>a[0]);
+    const head=item&&item.unit?[item.unit]:[];
+    return Array.from(new Set([...head,...used,...UNITS]));
+  },[item,freq]);
+
+  const pickItem=(o)=>{
+    const it=items.find(i=>i.id===o.key);
+    setRow({ itemId:o.key, subType:"", size:"", qty:1, unit:(it&&it.unit)||"" });
+    setErr("");
+  };
+
+  const addRow=()=>{
+    setErr("");
+    if(!item){ setErr("เลือกชื่อรายการก่อน"); return; }
+    if(item.variant!=="none"){
+      if(item.variant!=="color" && !row.subType.trim()){ setErr("เลือกหรือพิมพ์ประเภทย่อย"); return; }
+      if(!row.size){ setErr("เลือก"+VARIANT_LABEL[item.variant]); return; }
+    }
+    if(!row.unit.trim()){ setErr("เลือกหรือพิมพ์หน่วย"); return; }
+    if(!(row.qty>0)){ setErr("จำนวนต้องมากกว่า 0"); return; }
+    const e={ date, itemId:item.id, itemName:item.name, zone:item.zone, variant:item.variant,
+              subType:row.subType.trim(), size:row.size, qty:row.qty, unit:row.unit.trim() };
+    e.sku=skuOf(e);
+    setPending(p=>{
+      const ix=p.findIndex(x=>x.sku===e.sku && x.date===e.date && x.unit===e.unit);
+      if(ix>=0){ const c=[...p]; c[ix]={...c[ix],qty:c[ix].qty+e.qty}; return c; }
+      return [...p,e];
+    });
+    setRow({...blank, unit:row.unit});
+  };
+
+  const commit=async()=>{
+    if(!pending.length) return;
+    setBusy(true); setErr("");
+    try{
+      const upd={}; const stockRef=R("offices/"+office.id+"/stock");
+      // อ่านของเดิมแล้วบวกเพิ่ม
+      const snap=await stockRef.once("value"); const cur=snap.val()||{};
+      const freqAdd={};
+      pending.forEach(e=>{
+        const old=cur[e.sku];
+        const q=((old&&old.qty)||0)+e.qty;
+        upd["offices/"+office.id+"/stock/"+e.sku]={
+          itemId:e.itemId, itemName:e.itemName, zone:e.zone, variant:e.variant,
+          subType:e.subType, size:e.size, unit:e.unit, qty:q, updatedAt:nowTs()
+        };
+        cur[e.sku]={qty:q};
+        const lk=R("offices/"+office.id+"/stockIn").push().key;
+        upd["offices/"+office.id+"/stockIn/"+lk]={
+          date:e.date, sku:e.sku, itemId:e.itemId, itemName:e.itemName,
+          subType:e.subType, size:e.size, unit:e.unit, qty:e.qty,
+          ts:nowTs(), by:(user&&user.email)||""
+        };
+        freqAdd[e.itemId]=(freqAdd[e.itemId]||0)+1;
+        freqAdd["__units/"+safeKey(e.unit)]=(freqAdd["__units/"+safeKey(e.unit)]||0)+1;
+        if(e.subType) upd["catalog/"+e.itemId+"/subTypes/"+safeKey(e.subType)]=e.subType;
+      });
+      Object.entries(freqAdd).forEach(([k,v])=>{
+        const path = k.indexOf("__units/")===0 ? k : k;
+        upd["offices/"+office.id+"/freq/"+path]=((freq&&getFreq(freq,path))||0)+v;
+      });
+      await R("").update(upd);
+      setMsg("เพิ่มเข้าคลังแล้ว "+pending.length+" รายการ");
+      setPending([]); setTimeout(()=>setMsg(""),4500);
+    }catch(e){ setErr("บันทึกไม่สำเร็จ: "+e.message); }
+    setBusy(false);
+  };
+
+  const opts = items.map(i=>({ key:i.id, label:i.name, search:i.name,
+    hint:(ZONES.find(z=>z.id===i.zone)||{}).name+(i.variant!=="none"?" · มีตัวเลือกย่อย":"") }));
+
+  return (<Shell title="เพิ่มรายการเข้าคลัง" sub={office.name}
+    right={<button className="btn ghost sm" onClick={()=>go("office/"+office.id+"/items")}><Ic n="back" s={15}/> ย้อนกลับ</button>}
+    crumbs={[{t:"หน้าหลัก",to:""},{t:office.name,to:"office/"+office.id},
+             {t:"จัดการรายการอุปกรณ์ฯ",to:"office/"+office.id+"/items"},{t:"เพิ่มรายการเข้าคลัง"}]}>
+
+    {msg && <Msg kind="s">{msg}</Msg>}
+    {err && <Msg kind="e">{err}</Msg>}
+
+    <div className="card card-p" style={{marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"150px 1fr",gap:14,alignItems:"start"}} className="rowform">
+        <div className="field" style={{margin:0}}>
+          <label className="lbl">วันที่</label>
+          <input className="inp mono" type="date" value={date} onChange={e=>setDate(e.target.value)}/>
+        </div>
+        <div className="field" style={{margin:0}}>
+          <label className="lbl">ชื่อรายการ <span className="req">*</span></label>
+          <Typeahead options={opts} value={item?item.name:""} onPick={pickItem}
+            placeholder="พิมพ์ค้นหา เช่น ถุงมือ หมวก รองเท้า…"
+            emptyText="ไม่พบรายการ — กด “เพิ่ม/ลบชนิดอุปกรณ์” เพื่อสร้างใหม่"
+            render={o=>(<div><div style={{fontWeight:600}}>{o.label}</div><small>{o.hint}</small></div>)}/>
+        </div>
+      </div>
+
+      {item && <>
+        <div className="hr"></div>
+        <div className="grid3">
+          <div style={{gridColumn:item.variant==="none"?"span 1":"span 2"}}>
+            <VariantFields item={item} val={row} onChange={setRow} subTypes={subTypes}/>
+            {item.variant==="none" && <div className="hint">รายการนี้ไม่มีตัวเลือกย่อย</div>}
+          </div>
+          <div>
+            <div className="field"><label className="lbl">จำนวน <span className="req">*</span></label>
+              <QtyPicker value={row.qty} onChange={q=>setRow({...row,qty:q})}/></div>
+            <div className="field"><label className="lbl">หน่วย <span className="req">*</span></label>
+              <ComboBox value={row.unit} onChange={u=>setRow({...row,unit:u})}
+                options={unitOptions} placeholder="พิมพ์หน่วยใหม่" addLabel="พิมพ์หน่วยใหม่…"/></div>
+          </div>
+        </div>
+        <div style={{display:"flex",justifyContent:"flex-end",marginTop:4}}>
+          <button className="btn" onClick={addRow}><Ic n="plus" s={16}/> เพิ่มรายการนี้</button>
+        </div>
+      </>}
+
+      <div className="hr"></div>
+      <button className="btn neutral sm" onClick={()=>setMgr(true)}>
+        <Ic n="wrench" s={13}/> เพิ่ม/ลบชนิดอุปกรณ์ในฐานข้อมูล</button>
+    </div>
+
+    <div className="sec-head"><h2>รายการที่รอยืนยัน</h2>
+      <span className="chip n">{pending.length} รายการ</span></div>
+    <div className="tblwrap">
+      {pending.length===0
+        ? <Empty icon="box" title="ยังไม่มีรายการรอยืนยัน" desc="กรอกด้านบนแล้วกด “เพิ่มรายการนี้”"/>
+        : <table className="t"><thead><tr>
+            <th style={{width:100}}>วันที่</th><th>รายการ</th>
+            <th style={{width:90}} className="num">จำนวน</th><th style={{width:80}}>หน่วย</th><th style={{width:44}}></th>
+          </tr></thead><tbody>
+          {pending.map((e,i)=>(<tr key={i}>
+            <td className="mono" style={{fontSize:12.5}}>{thDate(e.date)}</td>
+            <td><div style={{fontWeight:600}}>{e.itemName}</div>
+              {(e.subType||e.size) && <div className="hint">
+                {e.subType}{e.subType&&e.size?" · ":""}
+                {e.size&&(e.variant==="color"?e.size:"ไซส์ "+e.size)}</div>}</td>
+            <td className="num mono" style={{fontWeight:700}}>{e.qty}</td>
+            <td style={{fontSize:12.5}}>{e.unit}</td>
+            <td><button className="iconbtn danger" onClick={()=>setPending(p=>p.filter((_,ix)=>ix!==i))}>
+              <Ic n="trash" s={13}/></button></td>
+          </tr>))}
+        </tbody></table>}
+    </div>
+
+    <div style={{marginTop:16,display:"flex",justifyContent:"flex-end",gap:9}}>
+      {pending.length>0 && <button className="btn neutral" onClick={()=>setPending([])}>ล้างทั้งหมด</button>}
+      <button className="btn ok" disabled={!pending.length||busy} onClick={commit}>
+        {busy&&<span className="spin" style={{borderColor:"rgba(255,255,255,.4)",borderTopColor:"#fff"}}></span>}
+        <Ic n="check" s={16}/> ยืนยันเพิ่มรายการ</button>
+    </div>
+
+    {mgr && <ItemManager catalog={catalog} onClose={()=>setMgr(false)}/>}
+  </Shell>);
+}
+function getFreq(freq,path){
+  if(path.indexOf("__units/")===0) return ((freq.__units)||{})[path.slice(8)]||0;
+  return freq[path]||0;
+}
+
+/* ── เพิ่ม/ลบชนิดอุปกรณ์ (ฐานข้อมูลกลาง ใช้ร่วมกันทั้ง 10 หน่วยงาน) ── */
+function ItemManager({catalog,onClose}){
+  const [nm,setNm]=useState(""); const [zone,setZone]=useState("area");
+  const [variant,setVariant]=useState("none"); const [unit,setUnit]=useState("อัน");
+  const [err,setErr]=useState("");
+  const list=useMemo(()=>Object.entries(catalog||{}).map(([id,c])=>({id,...c}))
+    .sort((a,b)=>((ZONE_IX[a.zone]??9)-(ZONE_IX[b.zone]??9))||((a.order||0)-(b.order||0))),[catalog]);
+
+  const add=async()=>{
+    setErr("");
+    if(!nm.trim()){ setErr("กรอกชื่อรายการ"); return; }
+    if(list.some(i=>i.name===nm.trim())){ setErr("มีรายการชื่อนี้อยู่แล้ว"); return; }
+    const maxo=Math.max(0,...list.filter(i=>i.zone===zone).map(i=>i.order||0));
+    await R("catalog").push({ name:nm.trim(), zone, variant, unit:unit.trim()||"อัน", order:maxo+1 });
+    setNm("");
+  };
+  const del=async(i)=>{
+    if(!confirm("ลบ “"+i.name+"” ออกจากฐานข้อมูลชนิดอุปกรณ์?\n\nของที่อยู่ในคลังและประวัติการเบิกจ่ายเดิมจะยังคงอยู่")) return;
+    await R("catalog/"+i.id).remove();
+  };
+
+  return (<Modal wide title="เพิ่ม/ลบชนิดอุปกรณ์" sub="ฐานข้อมูลกลาง — ใช้ร่วมกันทั้ง 10 หน่วยงาน" onClose={onClose}
+    footer={<button className="btn" onClick={onClose}>เสร็จสิ้น</button>}>
+    <Msg kind="e">{err}</Msg>
+    <div className="grid4" style={{marginBottom:6}}>
+      <div className="field" style={{gridColumn:"span 2"}}><label className="lbl">ชื่อรายการ</label>
+        <input className="inp" value={nm} onChange={e=>setNm(e.target.value)} placeholder="เช่น ชุดกันฝน"/></div>
+      <div className="field"><label className="lbl">โซนการสวมใส่</label>
+        <select className="inp" value={zone} onChange={e=>setZone(e.target.value)}>
+          {ZONES.map(z=><option key={z.id} value={z.id}>{z.icon} {z.name}</option>)}</select></div>
+      <div className="field"><label className="lbl">หน่วยเริ่มต้น</label>
+        <ComboBox value={unit} onChange={setUnit} options={UNITS}/></div>
+    </div>
+    <div className="field"><label className="lbl">ตัวเลือกย่อย</label>
+      <select className="inp" value={variant} onChange={e=>setVariant(e.target.value)}>
+        {VARIANT_KINDS.map(v=><option key={v.v} value={v.v}>{v.t}</option>)}</select></div>
+    <button className="btn block" onClick={add}><Ic n="plus" s={15}/> เพิ่มชนิดอุปกรณ์</button>
+
+    <div className="hr"></div>
+    <div className="tblwrap" style={{maxHeight:280,overflowY:"auto"}}>
+      <table className="t"><thead><tr><th>ชื่อรายการ</th><th style={{width:120}}>โซน</th>
+        <th style={{width:130}}>ตัวเลือกย่อย</th><th style={{width:60}}>หน่วย</th><th style={{width:40}}></th></tr></thead>
+        <tbody>{list.map(i=>(<tr key={i.id}>
+          <td style={{fontWeight:600}}>{i.name}</td>
+          <td style={{fontSize:12.5,color:"var(--ink-2)"}}>{(ZONES.find(z=>z.id===i.zone)||{}).name||"-"}</td>
+          <td style={{fontSize:12.5,color:"var(--ink-2)"}}>
+            {i.variant==="none"?"—":(i.variant==="color"?"เลือกสี":"ประเภทย่อย + ไซส์")}</td>
+          <td style={{fontSize:12.5}}>{i.unit}</td>
+          <td><button className="iconbtn danger" onClick={()=>del(i)}><Ic n="trash" s={12}/></button></td>
+        </tr>))}</tbody></table>
+    </div>
+  </Modal>);
+}
+
+/* ═══════════════ หน้า 7 — ดูรายการคงคลัง ═══════════════ */
+function Page7Stock({office,stock,stockIn}){
+  const [q,setQ]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [issued,setIssued]=useState({});
+  const [adj,setAdj]=useState(null);
+  const [adjQty,setAdjQty]=useState(0);
+  const stageRef=useRef(null);
+
+  useEffect(()=>{
+    let live=true;
+    R("withdrawals").orderByChild("officeId").equalTo(office.id).once("value").then(s=>{
+      if(!live) return;
+      const m={}; const v=s.val()||{};
+      Object.values(v).forEach(w=>(w.items||[]).forEach(it=>{ m[it.sku]=(m[it.sku]||0)+(it.qty||0); }));
+      setIssued(m);
+    }).catch(()=>{});
+    return ()=>{ live=false; };
+  },[office.id,stock]);
+
+  const received = useMemo(()=>{
+    const m={}; Object.values(stockIn||{}).forEach(r=>{ m[r.sku]=(m[r.sku]||0)+(r.qty||0); }); return m;
+  },[stockIn]);
+
+  const rows = useMemo(()=>{
+    const s=q.trim().toLowerCase();
+    return Object.entries(stock||{}).map(([sku,v])=>({sku,...v}))
+      .filter(r=>!s || fullLabel(r).toLowerCase().indexOf(s)>=0)
+      .sort((a,b)=>{
+        const za=ZONE_IX[a.zone]??9, zb=ZONE_IX[b.zone]??9; if(za!==zb) return za-zb;
+        if(a.itemName!==b.itemName) return a.itemName.localeCompare(b.itemName,"th");
+        if((a.subType||"")!==(b.subType||"")) return (a.subType||"").localeCompare(b.subType||"","th");
+        const na=parseInt(a.size), nb=parseInt(b.size);
+        if(!isNaN(na)&&!isNaN(nb)) return na-nb;
+        return String(a.size||"").localeCompare(String(b.size||""),"th");
+      });
+  },[stock,q]);
+
+  const byZone = useMemo(()=>ZONES.map(z=>({z,rows:rows.filter(r=>r.zone===z.id)})).filter(g=>g.rows.length),[rows]);
+  const totalQty = rows.reduce((s,r)=>s+(r.qty||0),0);
+
+  const doExcel=()=>{
+    const out=[];
+    byZone.forEach(g=>g.rows.forEach((r,i)=>out.push({
+      "โซน":g.z.name, "ชื่อรายการ":r.itemName, "ประเภทย่อย":r.subType||"-",
+      "ไซส์/สี":r.size||"-", "คงเหลือ":r.qty||0, "หน่วย":r.unit||"",
+      "รับเข้าสะสม":received[r.sku]||0, "จ่ายออกสะสม":issued[r.sku]||0
+    })));
+    exportXLSX(out,"คงคลัง","รายการคงคลัง-"+office.name+"-"+todayISO()+".xlsx",[22,30,22,10,10,8,12,12]);
+  };
+  const doPDF=async()=>{
+    setBusy(true);
+    try{ await exportPDF(stageRef.current,"รายการคงคลัง-"+office.name+"-"+todayISO()+".pdf","p"); }
+    catch(e){ alert("สร้าง PDF ไม่สำเร็จ: "+e.message); }
+    setBusy(false);
+  };
+  const saveAdj=async()=>{
+    const r=adj; const nq=Math.max(0,parseInt(adjQty)||0); const d=nq-(r.qty||0);
+    await R("offices/"+office.id+"/stock/"+r.sku).update({qty:nq,updatedAt:nowTs()});
+    if(d!==0) await R("offices/"+office.id+"/stockIn").push({
+      date:todayISO(), sku:r.sku, itemId:r.itemId, itemName:r.itemName, subType:r.subType||"",
+      size:r.size||"", unit:r.unit||"", qty:d, ts:nowTs(), kind:"adjust" });
+    setAdj(null);
+  };
+
+  return (<Shell title="ดูรายการคงคลัง" sub={office.name}
+    right={<button className="btn ghost sm" onClick={()=>go("office/"+office.id+"/items")}><Ic n="back" s={15}/> ย้อนกลับ</button>}
+    crumbs={[{t:"หน้าหลัก",to:""},{t:office.name,to:"office/"+office.id},
+             {t:"จัดการรายการอุปกรณ์ฯ",to:"office/"+office.id+"/items"},{t:"ดูรายการคงคลัง"}]}>
+
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:14}}>
+      <input className="inp" style={{maxWidth:330}} placeholder="ค้นหารายการ…" value={q} onChange={e=>setQ(e.target.value)}/>
+      <div className="tb-spacer"></div>
+      <button className="btn ghost sm" onClick={doExcel} disabled={!rows.length}><Ic n="file" s={14}/> ส่งออก Excel</button>
+      <button className="btn ghost sm" onClick={doPDF} disabled={!rows.length||busy}>
+        {busy?<span className="spin"></span>:<Ic n="pdf" s={14}/>} ส่งออก PDF</button>
+    </div>
+
+    {rows.length===0
+      ? <div className="tblwrap"><Empty icon="box" title="ยังไม่มีของในคลัง"
+          desc="ไปที่ “เพิ่มรายการเข้าคลัง” เพื่อบันทึกของที่รับเข้ามา"
+          action={<button className="btn" onClick={()=>go("office/"+office.id+"/stock-in")}>
+            <Ic n="plus" s={15}/> เพิ่มรายการเข้าคลัง</button>}/></div>
+      : <>
+        <div className="hint" style={{marginBottom:10}}>
+          {rows.length} รายการ · คงเหลือรวม <b className="mono">{totalQty}</b> ชิ้น ·
+          เรียงตามลำดับการสวมใส่จากศีรษะลงถึงเท้า</div>
+        {byZone.map(g=>(<div className="zone" key={g.z.id}>
+          <div className="zone-head">
+            <div className="zone-dot">{g.z.icon}</div>
+            <div className="zone-name">{g.z.name}</div>
+            <div className="zone-rule"></div>
+            <div className="zone-count">{g.rows.length} รายการ</div>
+          </div>
+          <div className="tblwrap"><table className="t"><thead><tr>
+            <th>ชื่อรายการ</th><th style={{width:170}}>ประเภทย่อย</th><th style={{width:90}}>ไซส์/สี</th>
+            <th style={{width:92}} className="num">คงเหลือ</th><th style={{width:64}}>หน่วย</th>
+            <th style={{width:82}} className="num">รับเข้า</th><th style={{width:82}} className="num">จ่ายออก</th>
+            <th style={{width:40}}></th>
+          </tr></thead><tbody>
+            {g.rows.map(r=>{
+              const low=(r.qty||0)<=0?"r":((r.qty||0)<=3?"w":null);
+              return (<tr key={r.sku}>
+                <td style={{fontWeight:600}}>{r.itemName}</td>
+                <td style={{fontSize:13,color:"var(--ink-2)"}}>{r.subType||"—"}</td>
+                <td>{r.variant==="color"
+                  ? <span style={{display:"inline-flex",alignItems:"center",gap:5}}>
+                      <span className="dotc" style={{background:colorHex(r.size)}}></span>{r.size}</span>
+                  : <span className="mono">{r.size||"—"}</span>}</td>
+                <td className="num"><span className={"chip "+(low||"g")} style={{fontWeight:700}}>{r.qty||0}</span></td>
+                <td style={{fontSize:13}}>{r.unit}</td>
+                <td className="num mono" style={{color:"var(--ink-3)",fontSize:12.5}}>{received[r.sku]||0}</td>
+                <td className="num mono" style={{color:"var(--ink-3)",fontSize:12.5}}>{issued[r.sku]||0}</td>
+                <td><button className="iconbtn" title="ปรับปรุงยอดคงเหลือ"
+                  onClick={()=>{setAdj(r);setAdjQty(r.qty||0);}}><Ic n="pen" s={12}/></button></td>
+              </tr>);
+            })}
+          </tbody></table></div>
+        </div>))}
+      </>}
+
+    {adj && <Modal title="ปรับปรุงยอดคงเหลือ" sub={fullLabel(adj)} onClose={()=>setAdj(null)}
+      footer={<><button className="btn neutral" onClick={()=>setAdj(null)}>ยกเลิก</button>
+              <button className="btn" onClick={saveAdj}>บันทึก</button></>}>
+      <div className="field"><label className="lbl">จำนวนคงเหลือที่ถูกต้อง ({adj.unit})</label>
+        <input className="inp mono" type="number" min="0" value={adjQty} autoFocus
+          onChange={e=>setAdjQty(e.target.value)}/></div>
+      <div className="hint">เดิม {adj.qty||0} {adj.unit} — ระบบจะบันทึกส่วนต่างไว้เป็นรายการปรับปรุงในประวัติรับเข้า</div>
+    </Modal>}
+
+    {/* เวทีสำหรับสร้าง PDF */}
+    <div className="pdfstage" ref={stageRef} aria-hidden="true">
+      <div style={{borderBottom:"3px solid #7A1FA2",paddingBottom:12,marginBottom:16}}>
+        <div style={{fontSize:13,color:"#7A1FA2",fontWeight:700,letterSpacing:".08em"}}>การไฟฟ้าส่วนภูมิภาค</div>
+        <div style={{fontSize:24,fontWeight:800}}>รายการอุปกรณ์ความปลอดภัยฯ คงคลัง</div>
+        <div style={{fontSize:15,marginTop:2}}>{office.name} · ข้อมูล ณ วันที่ {thDate(todayISO())}</div>
+      </div>
+      {byZone.map(g=>(<div key={g.z.id} style={{marginBottom:14}}>
+        <div style={{fontWeight:800,fontSize:15,background:"#F1E7F7",color:"#4A1263",
+          padding:"5px 10px",borderRadius:6,marginBottom:6}}>{g.z.name}</div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead><tr style={{background:"#FAF8FC"}}>
+            {["ลำดับ","ชื่อรายการ","ประเภทย่อย","ไซส์/สี","คงเหลือ","หน่วย","รับเข้า","จ่ายออก"].map((h,i)=>
+              <th key={i} style={{border:"1px solid #E4DEEC",padding:"5px 7px",
+                textAlign:i>=4?"center":"left",fontWeight:700}}>{h}</th>)}
+          </tr></thead>
+          <tbody>{g.rows.map((r,i)=>(<tr key={r.sku}>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px",textAlign:"center"}}>{i+1}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px"}}>{r.itemName}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px"}}>{r.subType||"—"}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px",textAlign:"center"}}>{r.size||"—"}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px",textAlign:"center",fontWeight:700}}>{r.qty||0}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px",textAlign:"center"}}>{r.unit}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px",textAlign:"center"}}>{received[r.sku]||0}</td>
+            <td style={{border:"1px solid #E4DEEC",padding:"4px 7px",textAlign:"center"}}>{issued[r.sku]||0}</td>
+          </tr>))}</tbody>
+        </table>
+      </div>))}
+      <div style={{marginTop:18,fontSize:12,color:"#8B8395",borderTop:"1px solid #E4DEEC",paddingTop:8}}>
+        รวม {rows.length} รายการ · คงเหลือรวม {totalQty} ชิ้น ·
+        ออกจากระบบจัดการอุปกรณ์ความปลอดภัยฯ กฟจ.ลำพูน และ กฟส.ในสังกัด
+      </div>
+    </div>
+  </Shell>);
+}
+
+/* ═══════════════ หน้า 8 — Dashboard ประวัติการเบิกจ่าย (สาธารณะ) ═══════════════ */
+function Page8Dashboard({user}){
+  const [raw,setRaw]=useState(null);
+  const [f,setF]=useState({office:"",item:"",from:"",to:"",empId:"",name:""});
+  const [applied,setApplied]=useState({office:"",item:"",from:"",to:"",empId:"",name:""});
+  const [person,setPerson]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const stageRef=useRef(null);
+
+  useEffect(()=>{
+    const ref=R("withdrawals").orderByChild("ts").limitToLast(4000);
+    const cb=ref.on("value",s=>{
+      const v=s.val()||{};
+      setRaw(Object.entries(v).map(([id,w])=>({id,...w})).sort((a,b)=>b.ts-a.ts));
+    },()=>setRaw([]));
+    return ()=>ref.off("value",cb);
+  },[]);
+
+  const itemNames = useMemo(()=>{
+    const set=new Set(); (raw||[]).forEach(w=>(w.items||[]).forEach(i=>set.add(i.itemName)));
+    return Array.from(set).sort((a,b)=>a.localeCompare(b,"th"));
+  },[raw]);
+
+  /* แตกเป็นรายบรรทัด (1 บรรทัด = 1 รายการที่เบิก) */
+  const lines = useMemo(()=>{
+    const out=[];
+    (raw||[]).forEach(w=>(w.items||[]).forEach((it,ix)=>out.push({
+      key:w.id+"_"+ix, wid:w.id, ts:w.ts, date:w.date||isoOfTs(w.ts),
+      officeId:w.officeId, office:OFC[w.officeId]||w.officeId,
+      empId:w.empId||"", name:w.name||"", position:w.position||"", ...it
+    })));
+    return out;
+  },[raw]);
+
+  const filtered = useMemo(()=>{
+    const a=applied;
+    const nm=a.name.trim().toLowerCase(), eid=a.empId.trim().toLowerCase();
+    return lines.filter(l=>{
+      if(a.office && l.officeId!==a.office) return false;
+      if(a.item   && l.itemName!==a.item)   return false;
+      if(a.from   && l.date<a.from)         return false;
+      if(a.to     && l.date>a.to)           return false;
+      if(eid      && l.empId.toLowerCase().indexOf(eid)<0) return false;
+      if(nm       && l.name.toLowerCase().indexOf(nm)<0)   return false;
+      return true;
+    });
+  },[lines,applied]);
+
+  const stats = useMemo(()=>{
+    const people=new Set(), offs=new Set(); let qty=0;
+    filtered.forEach(l=>{ people.add(l.officeId+"|"+l.empId); offs.add(l.officeId); qty+=(l.qty||0); });
+    return { rows:filtered.length, people:people.size, offices:offs.size, qty };
+  },[filtered]);
+
+  const personLines = useMemo(()=>{
+    if(!person) return [];
+    return lines.filter(l=>l.officeId===person.officeId && l.empId===person.empId);
+  },[lines,person]);
+
+  const doExcel=()=>{
+    exportXLSX(filtered.map((l,i)=>({
+      "ลำดับ":i+1,"วันที่":thDate(l.date),"เวลา":thDateTime(l.ts).split(" ")[1],
+      "หน่วยงาน":l.office,"รหัสประจำตัว":l.empId,"ชื่อ-นามสกุล":l.name,"ตำแหน่ง":l.position,
+      "รายการ":l.itemName,"ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-",
+      "จำนวน":l.qty,"หน่วย":l.unit
+    })),"ประวัติการเบิกจ่าย","ประวัติการเบิกจ่าย-"+todayISO()+".xlsx",[6,12,7,18,14,26,16,28,20,10,8,8]);
+  };
+  const doPDF=async()=>{
+    setBusy(true);
+    try{ await exportPDF(stageRef.current,"ประวัติการเบิกจ่าย-"+todayISO()+".pdf","l"); }
+    catch(e){ alert("สร้าง PDF ไม่สำเร็จ: "+e.message); }
+    setBusy(false);
+  };
+  const clear=()=>{ const z={office:"",item:"",from:"",to:"",empId:"",name:""}; setF(z); setApplied(z); };
+
+  if(raw===null) return <Loading t="กำลังโหลดประวัติการเบิกจ่าย…"/>;
+
+  return (<Shell title="Dashboard ประวัติการเบิกจ่าย อุปกรณ์ความปลอดภัยฯ"
+    sub="กฟจ.ลำพูน และ กฟส.ในสังกัด · เปิดดูได้โดยไม่ต้องเข้าสู่ระบบ"
+    right={<button className="btn ghost sm" onClick={()=>go("")}><Ic n="back" s={15}/> หน้าหลัก</button>}>
+
+    <div className="card card-p" style={{marginTop:6,marginBottom:16}}>
+      <div className="grid3">
+        <div className="field" style={{margin:0}}><label className="lbl">การไฟฟ้า</label>
+          <select className="inp" value={f.office} onChange={e=>setF({...f,office:e.target.value})}>
+            <option value="">ทุกหน่วยงาน</option>
+            {OFFICES.map(o=><option key={o.id} value={o.id}>{o.name}</option>)}</select></div>
+        <div className="field" style={{margin:0}}><label className="lbl">รายการ</label>
+          <select className="inp" value={f.item} onChange={e=>setF({...f,item:e.target.value})}>
+            <option value="">ทุกรายการ</option>
+            {itemNames.map(n=><option key={n} value={n}>{n}</option>)}</select></div>
+        <div className="field" style={{margin:0}}><label className="lbl">รหัสพนักงาน</label>
+          <input className="inp mono" value={f.empId} placeholder="เช่น 512345"
+            onChange={e=>setF({...f,empId:e.target.value})}/></div>
+        <div className="field" style={{margin:0}}><label className="lbl">ค้นหารายชื่อ</label>
+          <input className="inp" value={f.name} placeholder="พิมพ์ชื่อบางส่วนได้"
+            onChange={e=>setF({...f,name:e.target.value})}/></div>
+        <div className="field" style={{margin:0}}><label className="lbl">เบิกตั้งแต่วันที่</label>
+          <input className="inp mono" type="date" value={f.from} onChange={e=>setF({...f,from:e.target.value})}/></div>
+        <div className="field" style={{margin:0}}><label className="lbl">ถึงวันที่</label>
+          <input className="inp mono" type="date" value={f.to} onChange={e=>setF({...f,to:e.target.value})}/></div>
+      </div>
+      <div style={{display:"flex",gap:8,marginTop:14,flexWrap:"wrap"}}>
+        <button className="btn" onClick={()=>{setApplied({...f});setPerson(null);}}><Ic n="search" s={15}/> ค้นหา</button>
+        <button className="btn neutral" onClick={clear}>ล้างตัวกรอง</button>
+        <div className="tb-spacer"></div>
+        <button className="btn ghost sm" onClick={doExcel} disabled={!filtered.length}><Ic n="file" s={14}/> ส่งออก Excel</button>
+        <button className="btn ghost sm" onClick={doPDF} disabled={!filtered.length||busy}>
+          {busy?<span className="spin"></span>:<Ic n="pdf" s={14}/>} ส่งออก PDF</button>
+      </div>
+    </div>
+
+    <div className="grid4" style={{marginBottom:16}}>
+      {[["รายการที่เบิก",stats.rows],["จำนวนรวม",stats.qty],["ผู้เบิก (คน)",stats.people],["หน่วยงาน",stats.offices]]
+        .map(([t,v])=>(<div className="card card-p" key={t}>
+          <div className="hint">{t}</div>
+          <div className="mono" style={{fontSize:24,fontWeight:800}}>{v}</div></div>))}
+    </div>
+
+    <div className="tblwrap">
+      {filtered.length===0
+        ? <Empty icon="clock" title="ไม่พบประวัติการเบิกจ่าย" desc="ลองปรับตัวกรองหรือกดล้างตัวกรอง"/>
+        : <table className="t"><thead><tr>
+            <th style={{width:118}}>วันที่ / เวลา</th><th style={{width:130}}>หน่วยงาน</th>
+            <th style={{width:96}}>รหัส</th><th style={{minWidth:170}}>ชื่อ-นามสกุล</th>
+            <th>รายการ</th><th style={{width:74}} className="num">จำนวน</th><th style={{width:62}}>หน่วย</th>
+          </tr></thead><tbody>
+          {filtered.slice(0,600).map(l=>(<tr key={l.key}>
+            <td className="mono" style={{fontSize:12}}>{thDateTime(l.ts)}</td>
+            <td style={{fontSize:13}}>{l.office}</td>
+            <td className="mono" style={{fontSize:12.5}}>{l.empId}</td>
+            <td><button className="btn xs ghost" style={{fontWeight:700}}
+              onClick={()=>setPerson({officeId:l.officeId,empId:l.empId,name:l.name,position:l.position,office:l.office})}>
+              {l.name||"(ไม่ระบุ)"}</button></td>
+            <td><div style={{fontWeight:600}}>{l.itemName}</div>
+              {(l.subType||l.size) && <div className="hint">{l.subType}
+                {l.subType&&l.size?" · ":""}{l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}</td>
+            <td className="num mono" style={{fontWeight:700}}>{l.qty}</td>
+            <td style={{fontSize:13}}>{l.unit}</td>
+          </tr>))}
+        </tbody></table>}
+    </div>
+    {filtered.length>600 && <div className="hint" style={{marginTop:8}}>
+      แสดง 600 แถวแรกจาก {filtered.length} แถว — ใช้ตัวกรองให้แคบลง หรือส่งออกไฟล์เพื่อดูทั้งหมด</div>}
+    <div className="hint" style={{marginTop:10}}>
+      ชื่อบนหน้าสาธารณะถูกเซ็นเซอร์นามสกุลตามแนวปฏิบัติ PDPA — ดูชื่อเต็มได้ที่หน้า “จัดการรายชื่อ” ของแต่ละหน่วยงาน</div>
+
+    {person && <Modal wide title={person.name} sub={person.office+" · รหัส "+person.empId+(person.position?" · "+person.position:"")}
+      onClose={()=>setPerson(null)}
+      footer={<><button className="btn neutral" onClick={()=>{
+          exportXLSX(personLines.map((l,i)=>({"ลำดับ":i+1,"วันที่":thDate(l.date),"รายการ":l.itemName,
+            "ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-","จำนวน":l.qty,"หน่วย":l.unit})),
+            "ประวัติรายบุคคล","ประวัติการเบิก-"+person.empId+".xlsx",[6,12,28,20,10,8,8]);
+        }}><Ic n="file" s={14}/> ส่งออก Excel</button>
+        <button className="btn" onClick={()=>setPerson(null)}>ปิด</button></>}>
+      <div className="hint" style={{marginBottom:10}}>เบิกทั้งหมด {personLines.length} รายการ ·
+        รวม {personLines.reduce((s,l)=>s+(l.qty||0),0)} ชิ้น</div>
+      <div className="tblwrap" style={{maxHeight:400,overflowY:"auto"}}>
+        <table className="t"><thead><tr><th style={{width:104}}>วันที่</th><th>รายการ</th>
+          <th style={{width:70}} className="num">จำนวน</th><th style={{width:58}}>หน่วย</th></tr></thead>
+          <tbody>{personLines.map(l=>(<tr key={l.key}>
+            <td className="mono" style={{fontSize:12.5}}>{thDate(l.date)}</td>
+            <td><div style={{fontWeight:600}}>{l.itemName}</div>
+              {(l.subType||l.size)&&<div className="hint">{l.subType}{l.subType&&l.size?" · ":""}
+                {l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}</td>
+            <td className="num mono" style={{fontWeight:700}}>{l.qty}</td>
+            <td style={{fontSize:13}}>{l.unit}</td>
+          </tr>))}</tbody></table>
+      </div>
+    </Modal>}
+
+    {/* เวทีสำหรับสร้าง PDF */}
+    <div className="pdfstage" ref={stageRef} aria-hidden="true">
+      <div style={{borderBottom:"3px solid #7A1FA2",paddingBottom:12,marginBottom:14}}>
+        <div style={{fontSize:13,color:"#7A1FA2",fontWeight:700,letterSpacing:".08em"}}>การไฟฟ้าส่วนภูมิภาค</div>
+        <div style={{fontSize:23,fontWeight:800}}>ประวัติการเบิกจ่ายอุปกรณ์ความปลอดภัยฯ</div>
+        <div style={{fontSize:14,marginTop:2}}>
+          {applied.office?OFC[applied.office]:"กฟจ.ลำพูน และ กฟส.ในสังกัด"}
+          {applied.item?" · รายการ: "+applied.item:""}
+          {(applied.from||applied.to)?" · ช่วงวันที่ "+(applied.from?thDate(applied.from):"เริ่มต้น")+" – "+(applied.to?thDate(applied.to):"ปัจจุบัน"):""}
+          {" · พิมพ์เมื่อ "+thDate(todayISO())}
+        </div>
+      </div>
+      <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+        <thead><tr style={{background:"#F1E7F7"}}>
+          {["ลำดับ","วันที่","หน่วยงาน","รหัส","ชื่อ-นามสกุล","รายการ","ประเภทย่อย","ไซส์/สี","จำนวน","หน่วย"].map((h,i)=>
+            <th key={i} style={{border:"1px solid #E4DEEC",padding:"5px 6px",textAlign:"left",fontWeight:700}}>{h}</th>)}
+        </tr></thead>
+        <tbody>{filtered.slice(0,900).map((l,i)=>(<tr key={l.key}>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px",textAlign:"center"}}>{i+1}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px",whiteSpace:"nowrap"}}>{thDate(l.date)}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px"}}>{l.office}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px"}}>{l.empId}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px"}}>{l.name}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px"}}>{l.itemName}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px"}}>{l.subType||"—"}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px",textAlign:"center"}}>{l.size||"—"}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px",textAlign:"center",fontWeight:700}}>{l.qty}</td>
+          <td style={{border:"1px solid #E4DEEC",padding:"3px 6px",textAlign:"center"}}>{l.unit}</td>
+        </tr>))}</tbody>
+      </table>
+      <div style={{marginTop:14,fontSize:11.5,color:"#8B8395",borderTop:"1px solid #E4DEEC",paddingTop:8}}>
+        รวม {filtered.length} รายการ · จำนวนรวม {stats.qty} ชิ้น · ผู้เบิก {stats.people} คน
+      </div>
+    </div>
+  </Shell>);
+}
+
+/* ═══════════════ หน้าสุดท้าย — หน้าเบิกของ (สแกน QR) ═══════════════ */
+function Page9Withdraw({office}){
+  const [ready,setReady]=useState(false);
+  const [people,setPeople]=useState({});
+  const [stock,setStock]  =useState({});
+  const [who,setWho]      =useState(null);
+  const [pickName,setPickName]=useState("");
+  const [group,setGroup]  =useState(null);   // {itemName, variants:[...]}
+  const [sel,setSel]      =useState(null);   // sku ที่เลือก
+  const [qty,setQty]      =useState(1);
+  const [cart,setCart]    =useState([]);
+  const [err,setErr]      =useState("");
+  const [busy,setBusy]    =useState(false);
+  const [done,setDone]    =useState(null);
+
+  useEffect(()=>{
+    let offs=[];
+    const start=async()=>{
+      try{ if(!auth.currentUser) await auth.signInAnonymously(); }catch(e){}
+      const p=R("offices/"+office.id+"/people"), s=R("offices/"+office.id+"/stock");
+      const c1=p.on("value",x=>{ setPeople(x.val()||{}); setReady(true); },()=>setReady(true));
+      const c2=s.on("value",x=>setStock(x.val()||{}),()=>{});
+      offs=[()=>p.off("value",c1),()=>s.off("value",c2)];
+    };
+    start();
+    return ()=>offs.forEach(f=>f());
+  },[office.id]);
+
+  const peopleOpts = useMemo(()=>Object.entries(people).map(([id,p])=>({
+    key:id, label:p.fullName, search:(p.empId||"")+" "+(p.fullName||"")+" "+stripPrefix(p.fullName||""),
+    empId:p.empId, position:p.position, department:p.department
+  })),[people]);
+
+  /* รวมของในคลังเป็นกลุ่มตามชื่อรายการ (เฉพาะที่ยังมีของ) */
+  const groups = useMemo(()=>{
+    const g={};
+    Object.entries(stock).forEach(([sku,v])=>{
+      if(!(v.qty>0)) return;
+      const inCart=cart.filter(c=>c.sku===sku).reduce((s,c)=>s+c.qty,0);
+      const left=(v.qty||0)-inCart;
+      if(left<=0) return;
+      if(!g[v.itemName]) g[v.itemName]={itemName:v.itemName,zone:v.zone,variant:v.variant,variants:[],total:0};
+      g[v.itemName].variants.push({sku,...v,left});
+      g[v.itemName].total+=left;
+    });
+    return Object.values(g).sort((a,b)=>((ZONE_IX[a.zone]??9)-(ZONE_IX[b.zone]??9))||a.itemName.localeCompare(b.itemName,"th"));
+  },[stock,cart]);
+
+  const itemOpts = groups.map(g=>({ key:g.itemName, label:g.itemName, search:g.itemName,
+    hint:(ZONES.find(z=>z.id===g.zone)||{}).name+" · คงเหลือ "+g.total }));
+
+  const cur = group ? groups.find(g=>g.itemName===group.itemName) : null;
+  const selRow = cur && sel ? cur.variants.find(v=>v.sku===sel) : null;
+
+  const addCart=()=>{
+    setErr("");
+    if(!cur){ setErr("เลือกรายการที่จะเบิกก่อน"); return; }
+    if(cur.variants.length>1 && !selRow){ setErr("เลือก"+(cur.variant==="color"?"สี":"ประเภทย่อย/ไซส์")+"ก่อน"); return; }
+    const row = selRow || cur.variants[0];
+    if(qty>row.left){ setErr("คงเหลือ "+row.left+" "+row.unit+" — เบิกได้ไม่เกินนี้"); return; }
+    setCart(c=>{
+      const ix=c.findIndex(x=>x.sku===row.sku);
+      if(ix>=0){ const n=[...c]; n[ix]={...n[ix],qty:n[ix].qty+qty}; return n; }
+      return [...c,{ sku:row.sku, itemId:row.itemId, itemName:row.itemName, variant:row.variant,
+                     subType:row.subType||"", size:row.size||"", unit:row.unit, qty }];
+    });
+    setGroup(null); setSel(null); setQty(1); setPickName("");
+  };
+
+  const confirm=async()=>{
+    if(!who||!cart.length) return;
+    setBusy(true); setErr("");
+    try{
+      /* ตัดสต๊อกแบบ transaction กันชนกันเมื่อมีหลายคนเบิกพร้อมกัน */
+      for(const it of cart){
+        const res=await R("offices/"+office.id+"/stock/"+it.sku+"/qty").transaction(cq=>{
+          if(cq===null) return cq;
+          if(cq < it.qty) return;               // ยกเลิก — ของไม่พอ
+          return cq - it.qty;
+        });
+        if(!res.committed) throw new Error("ของไม่พอสำหรับ "+fullLabel(it)+" — กรุณาลองใหม่");
+      }
+      const rec={ officeId:office.id, empId:who.empId||"", name:censorName(who.fullName),
+                  position:who.position||"", items:cart, qty:cart.reduce((s,i)=>s+i.qty,0),
+                  date:todayISO(), ts:nowTs() };
+      await R("withdrawals").push(rec);
+      setDone(rec); setCart([]);
+    }catch(e){ setErr(e.message||"บันทึกไม่สำเร็จ"); }
+    setBusy(false);
+  };
+
+  if(!ready) return <Loading t="กำลังเชื่อมต่อคลัง…"/>;
+
+  if(done) return (<Shell title="เบิกอุปกรณ์สำเร็จ" sub={office.name}>
+    <div className="card card-p" style={{maxWidth:560,margin:"26px auto",textAlign:"center",
+      borderColor:"#C8E6D5",background:"var(--ok-soft)"}}>
+      <div style={{width:52,height:52,borderRadius:99,background:"var(--ok)",color:"#fff",
+        display:"grid",placeItems:"center",margin:"0 auto 12px"}}><Ic n="check" s={28}/></div>
+      <h2 style={{fontSize:19}}>บันทึกการเบิกเรียบร้อย</h2>
+      <div className="hint" style={{marginTop:4}}>{done.name} · {thDateTime(done.ts)}</div>
+      <div style={{background:"#fff",borderRadius:10,padding:14,marginTop:14,textAlign:"left"}}>
+        {done.items.map((it,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",
+          gap:10,padding:"6px 0",borderBottom:i<done.items.length-1?"1px solid #F2EFF6":"none"}}>
+          <span style={{fontWeight:600}}>{fullLabel(it)}</span>
+          <span className="mono" style={{fontWeight:700,whiteSpace:"nowrap"}}>{it.qty} {it.unit}</span>
+        </div>))}
+      </div>
+      <button className="btn" style={{marginTop:16}} onClick={()=>{setDone(null);setWho(null);setPickName("");}}>
+        เบิกรายการใหม่</button>
+    </div>
+  </Shell>);
+
+  return (<Shell title="เบิกอุปกรณ์ความปลอดภัยฯ" sub={office.name}>
+    <div style={{maxWidth:640,margin:"0 auto"}}>
+      {err && <Msg kind="e">{err}</Msg>}
+
+      {/* ขั้นที่ 1 — ระบุตัวผู้เบิก */}
+      <div className="card card-p" style={{marginTop:14}}>
+        <div className="sec-head" style={{margin:"0 0 10px"}}>
+          <span className="eyebrow">ขั้นที่ 1</span><h2 style={{fontSize:16}}>ผู้เบิก</h2></div>
+        {who
+          ? <div style={{display:"flex",alignItems:"center",gap:12,background:"var(--pea-soft)",
+              border:"1px solid var(--pea-line)",borderRadius:10,padding:"11px 14px"}}>
+              <Ic n="users" s={20} c="var(--pea)"/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:700}}>{who.fullName}</div>
+                <div className="hint">รหัส {who.empId||"—"}{who.position?" · "+who.position:""}
+                  {who.department?" · "+who.department:""}</div>
+              </div>
+              <button className="btn neutral xs" onClick={()=>{setWho(null);setPickName("");setCart([]);}}>เปลี่ยน</button>
+            </div>
+          : <>
+            <label className="lbl">พิมพ์รหัสประจำตัว หรือชื่อของท่าน</label>
+            <Typeahead options={peopleOpts} value={pickName} autoFocus
+              placeholder="เช่น 512345 หรือ เกียรติพงษ์"
+              emptyText="ไม่พบรหัส/ชื่อนี้ — ติดต่อผู้ดูแลคลังของหน่วยงาน"
+              onPick={o=>{ const p=people[o.key]; setWho({id:o.key,...p}); setPickName(o.label); setErr(""); }}
+              render={o=>(<div style={{display:"flex",gap:10,alignItems:"baseline"}}>
+                <span className="mono" style={{fontSize:12,color:"var(--pea)",minWidth:62}}>{o.empId||"—"}</span>
+                <span><div style={{fontWeight:600}}>{o.label}</div>
+                  {o.position && <small>{o.position}{o.department?" · "+o.department:""}</small>}</span>
+              </div>)}/>
+          </>}
+      </div>
+
+      {/* ขั้นที่ 2 — เลือกของ */}
+      {who && <div className="card card-p" style={{marginTop:14}}>
+        <div className="sec-head" style={{margin:"0 0 10px"}}>
+          <span className="eyebrow">ขั้นที่ 2</span><h2 style={{fontSize:16}}>เลือกอุปกรณ์ที่จะเบิก</h2></div>
+
+        {groups.length===0
+          ? <Empty icon="box" title="ไม่มีของคงเหลือในคลัง" desc="ติดต่อผู้ดูแลคลังของหน่วยงาน"/>
+          : <>
+            <label className="lbl">ค้นหารายการ</label>
+            <Typeahead options={itemOpts} value={group?group.itemName:""}
+              placeholder="พิมพ์ค้นหา เช่น ถุงมือ หมวก รองเท้า…"
+              emptyText="ไม่พบรายการที่มีของคงเหลือ"
+              onPick={o=>{ const g=groups.find(x=>x.itemName===o.key);
+                setGroup(g); setSel(g.variants.length===1?g.variants[0].sku:null); setQty(1); setErr(""); }}
+              render={o=>(<div><div style={{fontWeight:600}}>{o.label}</div><small>{o.hint}</small></div>)}/>
+
+            {cur && cur.variants.length>1 && <div style={{marginTop:14}}>
+              <label className="lbl">เลือก{cur.variant==="color"?"สี":"ประเภทย่อย / ไซส์"} <span className="req">*</span></label>
+              <div style={{display:"flex",flexWrap:"wrap",gap:7}}>
+                {[...cur.variants].sort((a,b)=>{
+                    if((a.subType||"")!==(b.subType||"")) return (a.subType||"").localeCompare(b.subType||"","th");
+                    const na=parseInt(a.size),nb=parseInt(b.size);
+                    return (!isNaN(na)&&!isNaN(nb))?na-nb:String(a.size||"").localeCompare(String(b.size||""),"th");
+                  }).map(v=>(
+                  <button key={v.sku} className={"chip clk"+(sel===v.sku?"":" n")}
+                    onClick={()=>{ setSel(v.sku); setQty(1); setErr(""); }}
+                    style={sel===v.sku?{borderColor:"var(--pea)",background:"var(--pea-soft)",boxShadow:"0 0 0 2px var(--pea-soft)"}:null}>
+                    {v.variant==="color" && <span className="dotc" style={{background:colorHex(v.size)}}></span>}
+                    {v.subType?v.subType+" ":""}
+                    {v.size && (v.variant==="color"?(v.subType?"· "+v.size:""):"ไซส์ "+v.size)}
+                    <span className="mono" style={{opacity:.65,fontSize:11}}>· เหลือ {v.left}</span>
+                  </button>))}
+              </div>
+            </div>}
+
+            {cur && <div style={{marginTop:14,display:"grid",gridTemplateColumns:"1fr auto",gap:12,alignItems:"end"}}>
+              <div><label className="lbl">จำนวนที่เบิก
+                {selRow && <span className="hint" style={{fontWeight:400}}> (คงเหลือ {selRow.left} {selRow.unit})</span>}</label>
+                <QtyPicker value={qty} onChange={setQty} max={selRow?selRow.left:9999}/></div>
+              <button className="btn" onClick={addCart}><Ic n="plus" s={16}/> เพิ่มลงรายการ</button>
+            </div>}
+          </>}
+      </div>}
+
+      {/* ขั้นที่ 3 — ยืนยัน */}
+      {who && cart.length>0 && <div className="card card-p" style={{marginTop:14,borderColor:"var(--pea-line)"}}>
+        <div className="sec-head" style={{margin:"0 0 10px"}}>
+          <span className="eyebrow">ขั้นที่ 3</span><h2 style={{fontSize:16}}>ตรวจสอบและยืนยัน</h2>
+          <div className="tb-spacer"></div><span className="chip">{cart.length} รายการ</span></div>
+        {cart.map((it,i)=>(<div key={it.sku} style={{display:"flex",alignItems:"center",gap:10,
+          padding:"9px 0",borderBottom:i<cart.length-1?"1px solid #F2EFF6":"none"}}>
+          <div style={{flex:1,minWidth:0}}><div style={{fontWeight:600}}>{it.itemName}</div>
+            {(it.subType||it.size) && <div className="hint">{it.subType}{it.subType&&it.size?" · ":""}
+              {it.size&&(it.variant==="color"?it.size:"ไซส์ "+it.size)}</div>}</div>
+          <span className="mono" style={{fontWeight:700}}>{it.qty} {it.unit}</span>
+          <button className="iconbtn danger" onClick={()=>setCart(c=>c.filter((_,ix)=>ix!==i))}>
+            <Ic n="trash" s={13}/></button>
+        </div>))}
+        <button className="btn ok block" style={{marginTop:14,padding:"12px 16px",fontSize:15.5}}
+          onClick={confirm} disabled={busy}>
+          {busy?<span className="spin" style={{borderColor:"rgba(255,255,255,.4)",borderTopColor:"#fff"}}></span>
+               :<Ic n="check" s={18}/>} ยืนยันการเบิก</button>
+      </div>}
+
+      <div className="hint" style={{textAlign:"center",margin:"22px 0 0"}}>
+        ระบบจัดการอุปกรณ์ความปลอดภัยฯ · กฟจ.ลำพูน และ กฟส.ในสังกัด</div>
+    </div>
+  </Shell>);
+}
+
+/* ═══════════════ ROUTER + APP ═══════════════ */
+function useHash(){
+  const [seg,setSeg]=useState(parseHash());
+  useEffect(()=>{
+    const h=()=>{ setSeg(parseHash()); window.scrollTo(0,0); };
+    window.addEventListener("hashchange",h);
+    return ()=>window.removeEventListener("hashchange",h);
+  },[]);
+  return seg;
+}
+
+/* โหลดข้อมูลของหน่วยงานที่กำลังเปิดอยู่ */
+function useOfficeData(oid,enabled){
+  const [d,setD]=useState({people:{},stock:{},stockIn:{},freq:{},loaded:false});
+  useEffect(()=>{
+    if(!oid||!enabled){ setD({people:{},stock:{},stockIn:{},freq:{},loaded:false}); return; }
+    const base="offices/"+oid+"/";
+    const refs={ people:R(base+"people"), stock:R(base+"stock"),
+                 stockIn:R(base+"stockIn"), freq:R(base+"freq") };
+    const cbs={};
+    Object.entries(refs).forEach(([k,ref])=>{
+      cbs[k]=ref.on("value",s=>setD(p=>({...p,[k]:s.val()||{},loaded:true})),
+                    ()=>setD(p=>({...p,loaded:true})));
+    });
+    return ()=>Object.entries(refs).forEach(([k,ref])=>ref.off("value",cbs[k]));
+  },[oid,enabled]);
+  return d;
+}
+
+function Denied({title,desc,onBack}){
+  return (<Shell title="ไม่มีสิทธิ์เข้าถึง">
+    <div className="card card-p" style={{maxWidth:520,margin:"32px auto",textAlign:"center"}}>
+      <Ic n="lock" s={32} c="var(--pea-line)"/>
+      <h2 style={{fontSize:18,margin:"10px 0 6px"}}>{title}</h2>
+      <p className="hint" style={{margin:"0 0 16px"}}>{desc}</p>
+      <button className="btn" onClick={onBack||(()=>go(""))}>กลับหน้าเข้าสู่ระบบ</button>
+    </div>
+  </Shell>);
+}
+
+function App(){
+  const seg=useHash();
+  const [user,setUser]=useState(null);
+  const [authReady,setAuthReady]=useState(false);
+  const [accounts,setAccounts]=useState(null);
+  const [catalog,setCatalog]=useState(null);
+  const seeded=useRef(false);
+
+  useEffect(()=>auth.onAuthStateChanged(u=>{ setUser(u); setAuthReady(true); }),[]);
+
+  useEffect(()=>{
+    const a=R("accounts"), c=R("catalog");
+    const ca=a.on("value",s=>setAccounts(s.val()||{}),()=>setAccounts({}));
+    const cc=c.on("value",s=>setCatalog(s.val()||{}),()=>setCatalog({}));
+    return ()=>{ a.off("value",ca); c.off("value",cc); };
+  },[]);
+
+  const realUser = user && !user.isAnonymous ? user : null;
+  const isMaster = !!realUser && String(realUser.email||"").toLowerCase()===MASTER_EMAIL;
+  const myOffice = useMemo(()=>{
+    if(!realUser||isMaster||!accounts) return null;
+    const hit=Object.entries(accounts).find(([oid,a])=>a && a.uid===realUser.uid);
+    return hit?hit[0]:null;
+  },[realUser,isMaster,accounts]);
+
+  /* ติดตั้งรายการอุปกรณ์ตั้งต้นครั้งแรก (แอดมินหลักเท่านั้น) */
+  useEffect(()=>{
+    if(!isMaster||!catalog||seeded.current) return;
+    if(Object.keys(catalog).length>0){ seeded.current=true; return; }
+    seeded.current=true;
+    const up={}; SEED_ITEMS.forEach((it,i)=>{ up[R("catalog").push().key]={...it,order:i}; });
+    R("catalog").update(up).catch(()=>{});
+  },[isMaster,catalog]);
+
+  /* พาแอดมินประจำหน่วยงานเข้าหน้าของตัวเองอัตโนมัติ */
+  useEffect(()=>{
+    if(myOffice && seg.length===0) go("office/"+myOffice);
+  },[myOffice,seg.length]);
+
+  const officeId = seg[0]==="office" ? seg[1] : (seg[0]==="w" ? seg[1] : null);
+  const od = useOfficeData(seg[0]==="office"?officeId:null, !!realUser && (isMaster||myOffice===officeId));
+
+  const logout=async()=>{ await auth.signOut(); go(""); };
+
+  /* ── หน้าสาธารณะ ── */
+  if(seg[0]==="w"){
+    const office=OFFICES.find(o=>o.id===seg[1]);
+    if(!office) return <Denied title="ไม่พบหน่วยงาน" desc="ลิงก์หรือ QR Code ไม่ถูกต้อง"/>;
+    return <Page9Withdraw office={office}/>;
+  }
+  if(seg[0]==="dashboard") return <Page8Dashboard user={realUser}/>;
+
+  if(!authReady||accounts===null||catalog===null) return <Loading/>;
+
+  if(seg[0]==="accounts")
+    return <Page2Accounts accounts={accounts} isMaster={isMaster} user={realUser||{}}/>;
+
+  if(seg[0]==="office"){
+    const office=OFFICES.find(o=>o.id===seg[1]);
+    if(!office) return <Denied title="ไม่พบหน่วยงาน" desc="ตรวจสอบลิงก์อีกครั้ง"/>;
+    if(!realUser) return <Page1Login accounts={accounts}/>;
+    if(!isMaster && myOffice!==office.id)
+      return <Denied title="เข้าหน่วยงานนี้ไม่ได้"
+        desc={"บัญชีของท่านมีสิทธิ์เฉพาะ "+(myOffice?OFC[myOffice]:"หน่วยงานที่ผูกไว้")+" เท่านั้น"}
+        onBack={()=>go(myOffice?"office/"+myOffice:"")}/>;
+
+    const page=seg[2];
+    if(page==="roster")   return <Page4Roster office={office} people={od.people}/>;
+    if(page==="items")    return <Page5Items office={office} stock={od.stock}/>;
+    if(page==="stock-in") return <Page6StockIn office={office} catalog={catalog} freq={od.freq} user={realUser}/>;
+    if(page==="stock")    return <Page7Stock office={office} stock={od.stock} stockIn={od.stockIn}/>;
+    return <Page3Office office={office} user={realUser} isMaster={isMaster}
+             onLogout={logout} stock={od.stock} people={od.people}/>;
+  }
+
+  /* หน้า 1 — แอดมินหลักที่ล็อกอินแล้ว เลือกหน่วยงานได้ทันที */
+  if(isMaster) return <MasterHome user={realUser} accounts={accounts} onLogout={logout}/>;
+  return <Page1Login accounts={accounts}/>;
+}
+
+/* หน้าหลักของแอดมินหลักหลังล็อกอิน */
+function MasterHome({user,accounts,onLogout}){
+  return (<Shell title="ระบบจัดการอุปกรณ์ความปลอดภัยฯ"
+    sub="กฟจ.ลำพูน และ กฟส.ในสังกัด · เข้าใช้งานในฐานะแอดมินหลัก"
+    right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+      <span className="mono" style={{fontSize:12,opacity:.85}}>{user.email}</span>
+      <button className="btn ghost sm" onClick={()=>go("accounts")}><Ic n="wrench" s={14}/> จัดการบัญชีผู้ใช้</button>
+      <button className="btn ghost sm" onClick={onLogout}><Ic n="out" s={14}/> ออกจากระบบ</button>
+    </div>}>
+    <div className="sec-head" style={{marginTop:14}}><h2>เลือกหน่วยงานที่ต้องการจัดการ</h2></div>
+    <div className="ofgrid">
+      {OFFICES.map((o,i)=>(<button key={o.id} className="ofcard" onClick={()=>go("office/"+o.id)}>
+        <div className="ofnum">{i+1}</div>
+        <div style={{minWidth:0}}><div className="ofname">{o.name}</div>
+          <div className="ofmeta">{accounts[o.id]?"มีแอดมินประจำหน่วยงาน":"ยังไม่ได้ตั้งบัญชี"}</div></div>
+      </button>))}
+    </div>
+    <div style={{marginTop:22,display:"flex",gap:9,flexWrap:"wrap"}}>
+      <button className="btn ghost" onClick={()=>go("dashboard")}>
+        <Ic n="chart" s={15}/> Dashboard ประวัติการเบิกจ่าย (ลิงก์สาธารณะ)</button>
+      <button className="btn neutral" onClick={()=>{
+        navigator.clipboard.writeText(location.origin+location.pathname+"#/dashboard");
+        alert("คัดลอกลิงก์ Dashboard สาธารณะแล้ว");
+      }}><Ic n="link" s={15}/> คัดลอกลิงก์ Dashboard</button>
+    </div>
+  </Shell>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+
+</script>
+</body>
+</html>
