@@ -524,26 +524,87 @@ table.t tbody tr:hover{background:var(--paper)}
 <div id="root"><div class="center"><span class="spin"></span></div></div>
 <script type="text/babel" data-presets="react">
 /* ═══════════════════════════════════════════════════════════════
-   ระบบจัดการอุปกรณ์ความปลอดภัยฯ  กฟจ.ลำพูน และ กฟส.ในสังกัด
+   ระบบจัดการอุปกรณ์ความปลอดภัยฯ  (ค่าเฉพาะของแต่ละระบบอยู่ในก้อน SITE ด้านล่าง)
    Single-file React + Firebase Realtime Database
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─────────── 1. FIREBASE ─────────── */
-/*  แทนค่าจาก Firebase Console → Project settings → Your apps → Web
-    หมายเหตุ: firebaseConfig ไม่ใช่ความลับ (เปิดเผยได้)
-    ความปลอดภัยจริงอยู่ที่ Realtime Database Rules   */
-const firebaseConfig = {
-  apiKey: "AIzaSyD6YbDvS5Y7_VMScfm_RaZq_RoaiqPPfyA",
-  authDomain: "ppe-lamphun.firebaseapp.com",
-  databaseURL: "https://ppe-lamphun-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "ppe-lamphun",
-  storageBucket: "ppe-lamphun.firebasestorage.app",
-  messagingSenderId: "236373805941",
-  appId: "1:236373805941:web:f7565c7d3a1bf90507e13c"
+/* ─────────── 1. ค่าของระบบแต่ละที่ ─────────── */
+/*  ทุกอย่างที่ต่างกันระหว่างระบบของแต่ละ กฟจ./กฟส. อยู่ในก้อน SITE นี้ก้อนเดียว
+    (หน่วยงานในสังกัด แอดมินหลัก Firebase ที่เก็บไฟล์ และ LINE) — ส่วนอื่นของโค้ดใช้ร่วมกันทุกระบบ
+    firebase ไม่ใช่ความลับ (เปิดเผยได้) ความปลอดภัยจริงอยู่ที่ Realtime Database Rules   */
+/*@@SITE-BEGIN*/
+const SITE = {
+  "code": "lamphun",
+  "main": "กฟจ.ลำพูน",
+  "scope": "กฟจ.ลำพูน และ กฟส.ในสังกัด",
+  "kicker": "การไฟฟ้าส่วนภูมิภาคจังหวัดลำพูน",
+  "appUrl": "https://pea-lamphun.github.io/ppe-lamphun/",
+  "masters": [
+    "yai_numnuan@hotmail.com"
+  ],
+  "loginDomain": "ppe-lamphun.local",
+  "idKey": "ppe.id.",
+  "offices": [
+    {
+      "id": "lamphun",
+      "name": "กฟจ.ลำพูน"
+    },
+    {
+      "id": "pasang",
+      "name": "กฟส.ป่าซาง"
+    },
+    {
+      "id": "banhong",
+      "name": "กฟส.บ้านโฮ่ง"
+    },
+    {
+      "id": "li",
+      "name": "กฟส.ลี้"
+    },
+    {
+      "id": "banthi",
+      "name": "กฟส.บ้านธิ"
+    },
+    {
+      "id": "maetha",
+      "name": "กฟส.แม่ทา"
+    },
+    {
+      "id": "nakhonchedi",
+      "name": "กฟส.นครเจดีย์"
+    },
+    {
+      "id": "wiangnonglong",
+      "name": "กฟส.เวียงหนองล่อง"
+    },
+    {
+      "id": "thunghuachang",
+      "name": "กฟส.ทุ่งหัวช้าง"
+    },
+    {
+      "id": "maetuen",
+      "name": "กฟส.แม่ตืน"
+    }
+  ],
+  "firebase": {
+    "apiKey": "AIzaSyD6YbDvS5Y7_VMScfm_RaZq_RoaiqPPfyA",
+    "authDomain": "ppe-lamphun.firebaseapp.com",
+    "databaseURL": "https://ppe-lamphun-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "projectId": "ppe-lamphun",
+    "storageBucket": "ppe-lamphun.firebasestorage.app",
+    "messagingSenderId": "236373805941",
+    "appId": "1:236373805941:web:f7565c7d3a1bf90507e13c"
+  },
+  "uploadUrl": "https://script.google.com/macros/s/AKfycbzs8wczvc02N-wMAmRwKZTjJe8iyOev6mMoIKH07YENTfgca0i5_0teboi1rFqOGS3GEA/exec",
+  "uploadToken": "ppe-lamphun-7Kq2Xm9Vt4Rb8Zn6Wd3",
+  "notifyUrl": "https://script.google.com/macros/s/AKfycbwcEr6Y9_H5dD7dMkWpifOQ6YfRnWn4fYSLqsweGjBoRgjMs6uPN8-dLpzTkbWoT0AotQ/exec"
 };
-
-const MASTER_EMAIL = "yai_numnuan@hotmail.com";   // แอดมินหลัก (Google login)
-const LOGIN_DOMAIN = "ppe-lamphun.local";   // โดเมนภายใน ใช้แปลง ID เป็นบัญชี Firebase
+/*@@SITE-END*/
+const firebaseConfig = SITE.firebase;
+const MASTER_EMAILS = SITE.masters.map(e => String(e).trim().toLowerCase());   // แอดมินหลัก (Google login)
+const isMasterEmail = (e) => MASTER_EMAILS.indexOf(String(e||"").trim().toLowerCase()) >= 0;
+const LOGIN_DOMAIN = SITE.loginDomain;   // โดเมนภายใน ใช้แปลง ID เป็นบัญชี Firebase
+try{ document.title = "ระบบจัดการอุปกรณ์ความปลอดภัยฯ " + SITE.main; }catch(e){}
 const ID_LEN = 19;
 const onlyDigits = (v) => String(v||"").replace(/\D/g,"");
 /* ID ที่ผู้ใช้พิมพ์จะถูกแปลงเป็นบัญชีภายในของ Firebase
@@ -552,14 +613,23 @@ const authEmailOf = (id, ver) => onlyDigits(id) + "." + (ver||1) + "@" + LOGIN_D
 const groupId = (id) => onlyDigits(id).replace(/(\d{4})(?=\d)/g,"$1 ");
 const ROOT = "ppe";
 
+/* ระบบที่เพิ่งสร้างและยังไม่ได้ใส่ค่า Firebase — แสดงข้อความแทนหน้าขาว */
+if(!(firebaseConfig && firebaseConfig.apiKey && firebaseConfig.appId)){
+  document.getElementById("root").innerHTML =
+    '<div style="max-width:460px;margin:60px auto;padding:24px;font-family:sans-serif;text-align:center;'+
+    'border:1px solid #E5E1EB;border-radius:14px;background:#fff;color:#3A1147">'+
+    '<div style="font-size:20px;font-weight:700;margin-bottom:8px">ระบบนี้ยังไม่พร้อมใช้งาน</div>'+
+    '<div style="color:#6B6375;line-height:1.6">ยังไม่ได้ตั้งค่า Firebase ของ '+SITE.main+'<br/>ติดต่อแอดมินหลักของระบบ</div></div>';
+  throw new Error("SITE.firebase ยังไม่ได้ตั้งค่า");
+}
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 /* จำการเข้าสู่ระบบไว้ในเครื่องนี้ จนกว่าจะกดออกจากระบบเอง */
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 /* จำ ID ของหน่วยงานไว้ในเครื่อง (ไม่เก็บรหัสผ่าน) */
 const idMem = {
-  get(oid){ try{ return localStorage.getItem("ppe.id."+oid)||""; }catch(e){ return ""; } },
-  set(oid,v){ try{ v?localStorage.setItem("ppe.id."+oid,v):localStorage.removeItem("ppe.id."+oid); }catch(e){} }
+  get(oid){ try{ return localStorage.getItem(SITE.idKey+oid)||""; }catch(e){ return ""; } },
+  set(oid,v){ try{ v?localStorage.setItem(SITE.idKey+oid,v):localStorage.removeItem(SITE.idKey+oid); }catch(e){} }
 };
 const db   = firebase.database();
 const R = (p) => db.ref(p ? ROOT + "/" + p : ROOT);
@@ -573,19 +643,8 @@ function secondaryAuth(){
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-/* ─────────── 2. หน่วยงาน 10 แห่ง ─────────── */
-const OFFICES = [
-  { id:"lamphun",        name:"กฟจ.ลำพูน" },
-  { id:"pasang",         name:"กฟส.ป่าซาง" },
-  { id:"banhong",        name:"กฟส.บ้านโฮ่ง" },
-  { id:"li",             name:"กฟส.ลี้" },
-  { id:"banthi",         name:"กฟส.บ้านธิ" },
-  { id:"maetha",         name:"กฟส.แม่ทา" },
-  { id:"nakhonchedi",    name:"กฟส.นครเจดีย์" },
-  { id:"wiangnonglong",  name:"กฟส.เวียงหนองล่อง" },
-  { id:"thunghuachang",  name:"กฟส.ทุ่งหัวช้าง" },
-  { id:"maetuen",        name:"กฟส.แม่ตืน" }
-];
+/* ─────────── 2. หน่วยงานในสังกัด (จาก SITE) ─────────── */
+const OFFICES = SITE.offices;
 const OFC = Object.fromEntries(OFFICES.map(o => [o.id, o.name]));
 
 /* ─────────── 3. โซนการสวมใส่ (ศีรษะ → เท้า → พื้นที่ทำงาน) ─────────── */
@@ -873,9 +932,9 @@ const GROUPS = [
   { id:3, name:"พขร.",                 c:"#1A6FD4" },
   { id:4, name:"ไม่ระบุตำแหน่ง",         c:"#857E92" }
 ];
-const DEPT_ORDER = ["กฟจ.ลำพูน","ผกส.","ผปบ.","ผมต.","ผบร.","ผบส.","ผสน.","ผคพ.","ผบง.","ผปร.","ผบค."];
+const DEPT_ORDER = [SITE.main,"ผกส.","ผปบ.","ผมต.","ผบร.","ผบส.","ผสน.","ผคพ.","ผบง.","ผปร.","ผบค."];
 /* ชื่อการไฟฟ้า (กฟจ./กฟส./กฟอ./กฟฟ.) ไม่ใช่ชื่อแผนก — ผจก./รจก. สังกัดการไฟฟ้าโดยตรง
-   จึงถือเป็นลำดับ 0 เท่ากับ "กฟจ.ลำพูน" เดิม เพื่อให้ขึ้นก่อนทุกแผนก */
+   จึงถือเป็นลำดับ 0 เท่ากับหน่วยงานหลัก (SITE.main) เพื่อให้ขึ้นก่อนทุกแผนก */
 const OFFICE_NAME_SET = new Set(OFFICES.map(o=>o.name));
 const isOfficeLevel = (d) => {
   const t=String(d||"").trim();
@@ -1453,15 +1512,15 @@ function QRBlock({url,label,size}){
 
 /* ═══════════════ อัปโหลดหลักฐานขึ้น Google Drive ═══════════════
    ผ่าน Apps Script Web App (ดูไฟล์ AppsScript-อัปโหลด.gs)          */
-const UPLOAD_URL    = "https://script.google.com/macros/s/AKfycbzs8wczvc02N-wMAmRwKZTjJe8iyOev6mMoIKH07YENTfgca0i5_0teboi1rFqOGS3GEA/exec";
-const UPLOAD_TOKEN  = "ppe-lamphun-7Kq2Xm9Vt4Rb8Zn6Wd3";
+const UPLOAD_URL    = SITE.uploadUrl || "";
+const UPLOAD_TOKEN  = SITE.uploadToken || "";
 const REQUIRE_PHOTO = true;    // บังคับแนบรูปถ่ายตอนเบิกของ
 const uploadReady   = () => UPLOAD_URL.indexOf("http")===0;
 
 /* ═══════════════ แจ้งเตือนการเบิกเข้ากลุ่ม LINE ═══════════════
    ผ่าน Apps Script ตัวกลาง (ดูไฟล์ AppsScript-แจ้งเตือนLINE.gs) — เว้นว่างไว้ = ปิดการแจ้งเตือน
    ส่งไปแค่เลขที่ใบเบิก ตัวกลางจะอ่านใบเบิกจริงจากฐานข้อมูลเอง จึงไม่มีข้อมูลหรือรหัสลับอยู่ในหน้านี้ */
-const NOTIFY_URL = "https://script.google.com/macros/s/AKfycbwcEr6Y9_H5dD7dMkWpifOQ6YfRnWn4fYSLqsweGjBoRgjMs6uPN8-dLpzTkbWoT0AotQ/exec";
+const NOTIFY_URL = SITE.notifyUrl || "";
 function notifyWithdraw(id){
   if(NOTIFY_URL.indexOf("https://script.google.com/")!==0 || !id) return;
   const body=JSON.stringify({ t:"w", id:String(id) });
@@ -1565,6 +1624,82 @@ function dbErr(e, what){
 /* อนุญาตเฉพาะลิงก์ไฟล์ของ Google เท่านั้น กัน javascript:/data: ที่อาจถูกยัดมาในฐานข้อมูล */
 const SAFE_HOST = /^https:\/\/(drive\.google\.com|lh3\.googleusercontent\.com)\//;
 const safeUrl = (u) => (typeof u==="string" && SAFE_HOST.test(u)) ? u : null;
+
+/* รูปจาก Google Drive แสดงในหน้าเว็บ — ลองลิงก์ย่อของ Drive ก่อน ถ้าโหลดไม่ได้ค่อยลองอีกแบบ */
+const driveId = (ph) => (ph && (ph.id || ((String(ph.view||"").match(/\/d\/([-\w]{10,})/)||[])[1]))) || "";
+function photoSrcs(ph, w){
+  const out=[], id=driveId(ph);
+  const t=ph && safeUrl(ph.thumb);
+  if(t) out.push(t.replace(/sz=w\d+/, "sz=w"+w));
+  if(/^[-\w]{10,}$/.test(id)) out.push("https://lh3.googleusercontent.com/d/"+id+"=w"+w);
+  return out;
+}
+function DriveImg({photo, w, style, alt, onFail}){
+  const srcs=useMemo(()=>photoSrcs(photo,w),[photo,w]);
+  const [i,setI]=useState(0);
+  useEffect(()=>{ setI(0); },[srcs]);
+  if(!srcs.length || i>=srcs.length){ onFail&&onFail(); return null; }
+  return <img src={srcs[i]} alt={alt||"รูปหลักฐานการเบิก"} style={style} loading="lazy"
+    referrerPolicy="no-referrer" onError={()=>setI(x=>x+1)}/>;
+}
+
+/* ดูรูปหลักฐานการเบิกในหน้าเดิม — เลื่อนดูรูปก่อนหน้า/ถัดไปของคนเดียวกันได้ */
+function PhotoViewer({shots, start, onClose}){
+  const [k,setK]=useState(start||0);
+  const [bad,setBad]=useState({});
+  const n=shots.length, cur=shots[Math.min(k,n-1)];
+  useEffect(()=>{
+    const h=(e)=>{
+      if(e.key==="Escape"){ e.stopImmediatePropagation(); e.preventDefault(); onClose(); }   // ปิดแค่รูป ไม่ปิดหน้าต่างประวัติ
+      else if(e.key==="ArrowLeft"){ e.stopImmediatePropagation(); setK(x=>Math.max(0,x-1)); }
+      else if(e.key==="ArrowRight"){ e.stopImmediatePropagation(); setK(x=>Math.min(n-1,x+1)); }
+    };
+    window.addEventListener("keydown",h,true); return ()=>window.removeEventListener("keydown",h,true);
+  },[n,onClose]);
+  if(!cur) return null;
+  const nav={width:44,height:44,borderRadius:99,border:"none",background:"rgba(255,255,255,.16)",color:"#fff",
+    display:"grid",placeItems:"center",cursor:"pointer",flex:"none"};
+  const view=safeUrl(cur.photo && cur.photo.view);
+  return (<div className="ov" data-k="photo-viewer" style={{zIndex:260,background:"rgba(18,12,24,.88)",flexDirection:"column",gap:12}}
+    onMouseDown={e=>{ if(e.target===e.currentTarget) onClose(); }}>
+    <div style={{width:"100%",maxWidth:900,display:"flex",alignItems:"flex-start",gap:12,color:"#fff"}}>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,fontSize:15}}>{thDateTime(cur.ts)}</div>
+        <div style={{fontSize:13,opacity:.82,lineHeight:1.5,marginTop:2}}>{cur.caption}</div>
+      </div>
+      {n>1 && <span className="mono" style={{fontSize:13,opacity:.8,paddingTop:2}}>{(k+1)+" / "+n}</span>}
+      <button style={{...nav,width:36,height:36}} onClick={onClose} aria-label="ปิด"><Ic n="x" s={15}/></button>
+    </div>
+    <div style={{width:"100%",maxWidth:900,display:"flex",alignItems:"center",gap:10,justifyContent:"center",minHeight:0,flex:"0 1 auto"}}>
+      {n>1 && <button style={{...nav,opacity:k>0?1:.3}} disabled={k<=0} onClick={()=>setK(k-1)} aria-label="รูปก่อนหน้า">
+        <span style={{fontSize:22,lineHeight:1}}>‹</span></button>}
+      <div style={{flex:1,minWidth:0,display:"grid",placeItems:"center",minHeight:220}}>
+        {bad[cur.wid]
+          ? <div style={{color:"#fff",textAlign:"center",fontSize:14,lineHeight:1.7,padding:24}}>
+              แสดงรูปในหน้านี้ไม่ได้<br/>กดปุ่ม "เปิดใน Google Drive" ด้านล่าง</div>
+          : <DriveImg key={cur.wid} photo={cur.photo} w={1600} alt={"รูปหลักฐาน "+thDateTime(cur.ts)}
+              onFail={()=>setTimeout(()=>setBad(b=>({...b,[cur.wid]:1})),0)}
+              style={{maxWidth:"100%",maxHeight:"68vh",objectFit:"contain",borderRadius:10,background:"#222",display:"block"}}/>}
+      </div>
+      {n>1 && <button style={{...nav,opacity:k<n-1?1:.3}} disabled={k>=n-1} onClick={()=>setK(k+1)} aria-label="รูปถัดไป">
+        <span style={{fontSize:22,lineHeight:1}}>›</span></button>}
+    </div>
+    {view && <a className="btn neutral sm" href={view} target="_blank" rel="noopener noreferrer"
+      style={{textDecoration:"none"}}><Ic n="eye" s={13}/> เปิดใน Google Drive</a>}
+  </div>);
+}
+
+/* รูปย่อในตาราง — กดแล้วเปิดตัวดูรูป · โหลดรูปย่อไม่ได้ก็ยังมีปุ่มให้กด */
+function PhotoThumb({photo, onOpen}){
+  const [fail,setFail]=useState(false);
+  return (<button type="button" onClick={onOpen} title="ดูรูปหลักฐาน" data-k="photo-thumb"
+    style={{width:46,height:46,padding:0,border:"1px solid var(--line)",borderRadius:8,overflow:"hidden",
+      background:"var(--bg-2, #F4F1F7)",display:"grid",placeItems:"center",cursor:"pointer"}}>
+    {fail ? <Ic n="eye" s={15}/>
+      : <DriveImg photo={photo} w={160} onFail={()=>setTimeout(()=>setFail(true),0)}
+          style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}/>}
+  </button>);
+}
 
 /* ── ถ่ายรูป / เลือกรูป (หน้าเบิกของ) ── */
 /* ── คู่มือแก้ปัญหากล้องไม่ทำงาน (ให้พนักงานหน้างานอ่านเองได้) ── */
@@ -1815,7 +1950,7 @@ function Page1Login({accounts}){
       const p=new firebase.auth.GoogleAuthProvider();
       p.setCustomParameters({ prompt:"select_account" });
       const res=await auth.signInWithPopup(p);
-      if(String(res.user.email||"").toLowerCase()!==MASTER_EMAIL){
+      if(!isMasterEmail(res.user.email)){
         await auth.signOut();
         setErr("บัญชี "+res.user.email+" ไม่ใช่แอดมินหลักของระบบ");
       }
@@ -1845,13 +1980,13 @@ function Page1Login({accounts}){
 
   return (<Shell
     title="ระบบจัดการอุปกรณ์ความปลอดภัยฯ"
-    sub="กฟจ.ลำพูน และ กฟส.ในสังกัด"
+    sub={SITE.scope}
     right={<button className="btn onplum sm" onClick={()=>go("accounts")}>
       <Ic n="wrench" s={15}/> จัดการบัญชีผู้ใช้</button>}>
 
     <div className="hero">
       <div className="hero-b">
-        <div className="hero-k">การไฟฟ้าส่วนภูมิภาคจังหวัดลำพูน</div>
+        <div className="hero-k">{SITE.kicker}</div>
         <div className="hero-t">ระบบควบคุมสต๊อกและการเบิกจ่าย<br/>อุปกรณ์ความปลอดภัยส่วนบุคคล</div>
         <div className="hero-d">เลือกหน่วยงานของท่านด้านล่างเพื่อเข้าใช้งาน</div>
       </div>
@@ -2925,7 +3060,7 @@ function getFreq(freq,path){
   return freq[path]||0;
 }
 
-/* ── เพิ่ม/ลบชนิดอุปกรณ์ (ฐานข้อมูลกลาง ใช้ร่วมกันทั้ง 10 หน่วยงาน) ── */
+/* ── เพิ่ม/ลบชนิดอุปกรณ์ (ฐานข้อมูลกลาง ใช้ร่วมกันทุกหน่วยงานในระบบ) ── */
 function ItemManager({catalog,onClose,initName}){
   const [nm,setNm]=useState(initName||""); const [zone,setZone]=useState("area");
   const [variant,setVariant]=useState("none"); const [unit,setUnit]=useState("อัน");
@@ -2951,7 +3086,7 @@ function ItemManager({catalog,onClose,initName}){
     catch(e){ setErr(dbErr(e,"ลบชนิดอุปกรณ์")); }
   };
 
-  return (<Modal wide title="เพิ่ม/ลบชนิดอุปกรณ์" sub="ใช้ร่วมกันทั้ง 10 หน่วยงาน" onClose={onClose}
+  return (<Modal wide title="เพิ่ม/ลบชนิดอุปกรณ์" sub={"ใช้ร่วมกันทั้ง "+OFFICES.length+" หน่วยงาน"} onClose={onClose}
     footer={<button className="btn" onClick={onClose}>เสร็จสิ้น</button>}>
     {err && <Msg kind="e">{err}</Msg>}
     {ok && <Msg kind="s">{ok}</Msg>}
@@ -3233,7 +3368,7 @@ function Page7Stock({office,stock,stockIn}){
       </div>))}
       <div style={{marginTop:18,fontSize:12,color:"#8A8296",borderTop:"1px solid #E5E1EB",paddingTop:8}}>
         รวม {rows.length} รายการ · คงเหลือรวม {totalQty} ชิ้น ·
-        ออกจากระบบจัดการอุปกรณ์ความปลอดภัยฯ กฟจ.ลำพูน และ กฟส.ในสังกัด
+        ออกจากระบบจัดการอุปกรณ์ความปลอดภัยฯ {SITE.scope}
       </div>
     </div>
   </Shell>);
@@ -3358,8 +3493,8 @@ function Page8Dashboard({user,isMaster,slipId}){
   /* ── ข้อมูลสำหรับกราฟ — คำนวณจาก filtered จึงขยับตามตัวกรองทุกครั้ง ── */
 
   /* สัดส่วนตามหน่วยงาน
-     ช่วงทดลองใช้ (มีหน่วยงานเดียวที่เบิก) — ซ่อนแถวศูนย์ไว้ ไม่งั้นจะดูเหมือนอีก 9 แห่งละเลยไม่เบิกของ
-     พอขยายผลแล้วมีตั้งแต่ 2 แห่งขึ้นไป — โชว์ครบ 10 แห่ง จะได้ใช้ติดตามว่าที่ไหนยังไม่เริ่ม */
+     ช่วงทดลองใช้ (มีหน่วยงานเดียวที่เบิก) — ซ่อนแถวศูนย์ไว้ ไม่งั้นจะดูเหมือนแห่งอื่นละเลยไม่เบิกของ
+     พอขยายผลแล้วมีตั้งแต่ 2 แห่งขึ้นไป — โชว์ครบทุกแห่ง จะได้ใช้ติดตามว่าที่ไหนยังไม่เริ่ม */
   const byOffice = useMemo(()=>{
     const m={}; filtered.forEach(l=>{ m[l.officeId]=(m[l.officeId]||0)+(l.qty||0); });
     const rows=OFFICES.map(o=>({k:o.id,name:o.name,v:m[o.id]||0,c:"#7B1FA2"}))
@@ -3485,6 +3620,20 @@ function Page8Dashboard({user,isMaster,slipId}){
     if(!person) return [];
     return lines.filter(l=>l.officeId===person.officeId && l.empId===person.empId);
   },[lines,person]);
+  /* รูปหลักฐานของคนนี้ — 1 รูปต่อ 1 ใบเบิก เรียงตามตาราง */
+  const personShots = useMemo(()=>{
+    const seen={}, out=[];
+    personLines.forEach(l=>{
+      if(!l.photo || !safeUrl(l.photo.view) || seen[l.wid]) return;
+      seen[l.wid]=1;
+      const its=personLines.filter(x=>x.wid===l.wid).map(x=>x.itemName+(x.subType?" · "+x.subType:"")+
+        (x.size?" · "+(x.variant==="color"?x.size:"ไซส์ "+x.size):"")+" ("+x.qty+" "+(x.unit||"")+")");
+      out.push({ wid:l.wid, ts:l.ts, photo:l.photo, caption:its.join(" , ") });
+    });
+    return out;
+  },[personLines]);
+  const [shotAt,setShotAt]=useState(-1);
+  useEffect(()=>{ setShotAt(-1); },[person]);
 
   /* ลบใบเบิกทั้งใบ แล้วคืนของกลับเข้าคลัง — เฉพาะแอดมินหลัก */
   const delW=(l)=>{
@@ -3539,7 +3688,7 @@ function Page8Dashboard({user,isMaster,slipId}){
   if(raw===null) return <Loading t="กำลังโหลดประวัติการเบิกจ่าย…"/>;
 
   return (<Shell title="Dashboard ประวัติการเบิกจ่าย อุปกรณ์ความปลอดภัยฯ"
-    sub="กฟจ.ลำพูน และ กฟส.ในสังกัด"
+    sub={SITE.scope}
     right={<button className="btn onplum sm" onClick={()=>go("")}><Ic n="back" s={15}/> หน้าหลัก</button>}>
 
     <div className="card card-p" style={{marginTop:6,marginBottom:16}}>
@@ -3612,7 +3761,7 @@ function Page8Dashboard({user,isMaster,slipId}){
       <div className="chgrid">
         <ChartCard title="สัดส่วนการเบิกแยกตามหน่วยงาน"
           sub={applied.office ? "เฉพาะหน่วยงานที่เลือก"
-             : byOffice.rollout ? "แสดงครบทั้ง 10 แห่ง" : "ช่วงทดลองใช้งาน"}>
+             : byOffice.rollout ? "แสดงครบทั้ง "+OFFICES.length+" แห่ง" : "ช่วงทดลองใช้งาน"}>
           <BarsH rows={byOffice.rows} unit="ชิ้น" showZero={byOffice.rollout && !applied.office}/>
         </ChartCard>
         <ChartCard title="รายการที่เบิกมากที่สุด 10 อันดับ" sub="แยกตามประเภทย่อยและไซส์">
@@ -3672,25 +3821,34 @@ function Page8Dashboard({user,isMaster,slipId}){
       onClose={()=>setPerson(null)}
       footer={<><button className="btn neutral" onClick={()=>{
           exportXLSX(personLines.map((l,i)=>({"ลำดับ":i+1,"วันที่":thDate(l.date),"รายการ":l.itemName,
-            "ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-","จำนวน":l.qty,"หน่วย":l.unit})),
-            "ประวัติรายบุคคล","ประวัติการเบิก-"+person.empId+".xlsx",[6,12,28,20,10,8,8]);
+            "ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-","จำนวน":l.qty,"หน่วย":l.unit,
+            "รูปหลักฐาน":(l.photo&&safeUrl(l.photo.view))||"-"})),
+            "ประวัติรายบุคคล","ประวัติการเบิก-"+person.empId+".xlsx",[6,12,28,20,10,8,8,48]);
         }}><Ic n="file" s={14}/> ส่งออก Excel</button>
         <button className="btn" onClick={()=>setPerson(null)}>ปิด</button></>}>
       <div className="hint" style={{marginBottom:10}}>เบิกทั้งหมด {personLines.length} รายการ ·
         รวม {personLines.reduce((s,l)=>s+(l.qty||0),0)} ชิ้น</div>
       <div className="tblwrap" style={{maxHeight:400,overflowY:"auto"}}>
         <table className="t"><thead><tr><th style={{width:104}}>วันที่</th><th>รายการ</th>
-          <th style={{width:70}} className="num">จำนวน</th><th style={{width:58}}>หน่วย</th></tr></thead>
-          <tbody>{personLines.map(l=>(<tr key={l.key}>
+          <th style={{width:70}} className="num">จำนวน</th><th style={{width:58}}>หน่วย</th>
+          <th style={{width:64}}>รูป</th></tr></thead>
+          <tbody>{personLines.map(l=>{ const si=personShots.findIndex(x=>x.wid===l.wid);
+            return (<tr key={l.key}>
             <td className="mono" style={{fontSize:12.5}}>{thDate(l.date)}</td>
             <td><div style={{fontWeight:600}}>{l.itemName}</div>
               {(l.subType||l.size)&&<div className="hint">{l.subType}{l.subType&&l.size?" · ":""}
                 {l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}</td>
             <td className="num mono" style={{fontWeight:700}}>{l.qty}</td>
             <td style={{fontSize:13}}>{l.unit}</td>
-          </tr>))}</tbody></table>
+            <td style={{padding:"6px 10px"}}>{si>=0
+              ? <PhotoThumb photo={l.photo} onOpen={()=>setShotAt(si)}/>
+              : <span style={{color:"var(--ink-4)"}}>—</span>}</td>
+          </tr>); })}</tbody></table>
       </div>
+      {personShots.length>0 && <div className="hint" style={{marginTop:8}}>
+        กดที่รูปเพื่อดูรูปใหญ่ · เลื่อนดูรูปของครั้งอื่นได้ด้วยปุ่ม ‹ ›</div>}
     </Modal>}
+    {person && shotAt>=0 && <PhotoViewer shots={personShots} start={shotAt} onClose={()=>setShotAt(-1)}/>}
 
     {/* ใบเบิกที่เปิดจากการ์ดแจ้งเตือน LINE — ตรวจแล้วลบได้ทันทีถ้าทำรายการผิด (เฉพาะแอดมินหลัก) */}
     {slipId!=null && (()=>{
@@ -3757,7 +3915,7 @@ function Page8Dashboard({user,isMaster,slipId}){
         <div style={{fontSize:23,fontWeight:800}}>
           {buyView ? "ประวัติการจัดซื้อและการเบิกจ่าย · "+buyView.label : "ประวัติการเบิกจ่ายอุปกรณ์ความปลอดภัยฯ"}</div>
         <div style={{fontSize:14,marginTop:2}}>
-          {applied.office?OFC[applied.office]:"กฟจ.ลำพูน และ กฟส.ในสังกัด"}
+          {applied.office?OFC[applied.office]:SITE.scope}
           {applied.item?" · รายการ: "+applied.item:""}
           {applied.sub?" · ประเภทย่อย: "+applied.sub:""}
           {(applied.from||applied.to)?" · ช่วงวันที่ "+(applied.from?thDate(applied.from):"เริ่มต้น")+" – "+(applied.to?thDate(applied.to):"ปัจจุบัน"):""}
@@ -4562,7 +4720,7 @@ function App(){
   const viaGoogle = (u) => !!u && (
     (u.providerData||[]).some(p=>p&&p.providerId==="google.com") ||
     (u.providerId==="google.com"));
-  const isMaster = !!realUser && String(realUser.email||"").toLowerCase()===MASTER_EMAIL
+  const isMaster = !!realUser && isMasterEmail(realUser.email)
                    && viaGoogle(realUser);
   const myOffice = useMemo(()=>{
     if(!realUser||isMaster||!accounts) return null;
@@ -4665,7 +4823,7 @@ function App(){
 /* หน้าหลักของแอดมินหลักหลังล็อกอิน */
 function MasterHome({user,accounts,onLogout}){
   return (<Shell title="ระบบจัดการอุปกรณ์ความปลอดภัยฯ"
-    sub="กฟจ.ลำพูน และ กฟส.ในสังกัด"
+    sub={SITE.scope}
     right={<div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
       <span className="tb-mail">{user.email}</span>
       <button className="btn onplum sm" onClick={()=>go("accounts")}><Ic n="wrench" s={14}/> จัดการบัญชีผู้ใช้</button>
