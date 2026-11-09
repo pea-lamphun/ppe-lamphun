@@ -805,10 +805,15 @@ function censorName(full){
    หน้า QR เปิดให้ทุกคนเข้าได้ จึงอ่านได้เฉพาะก้อน lookup ซึ่งเก็บแค่
    รหัส + ชื่อที่เซ็นเซอร์นามสกุลแล้ว + ตำแหน่ง + สังกัด
    ทะเบียนชื่อเต็ม (people) เปิดให้เฉพาะแอดมินของหน่วยงานนั้นกับแอดมินหลัก */
-const lookupOf = (p) => ({
-  empId:String((p&&p.empId)||"").trim(), name:censorName((p&&p.fullName)||""),
-  position:String((p&&p.position)||"").trim(), department:String((p&&p.department)||"").trim()
-});
+const lookupOf = (p) => {
+  const o={ empId:String((p&&p.empId)||"").trim(), name:censorName((p&&p.fullName)||""),
+    position:String((p&&p.position)||"").trim(), department:String((p&&p.department)||"").trim() };
+  if(p && p.selfAdded===true) o.selfAdded=true;   /* ยังไม่มีในทะเบียนจริง — พนักงานกรอกเองตอนเบิก */
+  return o;
+};
+/* ถ้ายังไม่ได้วาง Rules รุ่นที่รับป้าย selfAdded/unlisted — ตัดป้ายออกแล้วลองใหม่ ให้ใช้งานต่อได้ไม่สะดุด */
+const isDenied = (e) => /PERMISSION_DENIED|permission/i.test(String(e && (e.code||e.message) || e));
+const noFlag = (o, k) => { const c={...o}; delete c[k]; return c; };
 /* ── สำเนาสาธารณะของประวัติการเติมของ (buyLog) ──
    ให้ Dashboard แสดงได้ทุกคน โดยตัดของที่ห้ามเปิดเผยออก:
    by = บัญชีแอดมินที่เติม (คือ ID ล็อกอินของหน่วยงาน) · files = ลิงก์ใบสั่งซื้อ · การปรับปรุงยอด */
@@ -848,7 +853,8 @@ function ensureSignedIn(){
 /* แปลงดัชนีเป็นรูปแบบเดียวกับทะเบียน (fullName = ชื่อที่เซ็นเซอร์แล้ว) */
 const asPeople = (L) => {
   const o={}; Object.entries(L||{}).forEach(([id,x])=>{ if(x) o[id]={ empId:x.empId||"",
-    fullName:x.name||"", position:x.position||"", department:x.department||"" }; });
+    fullName:x.name||"", position:x.position||"", department:x.department||"",
+    ...(x.selfAdded===true?{selfAdded:true}:{}) }; });
   return o;
 };
 /* ช่วงเปลี่ยนผ่าน (เฉพาะหน่วยงานที่สแกน QR): ถ้ายังไม่มีดัชนี ลองอ่านทะเบียนแบบเดิม
@@ -859,12 +865,22 @@ async function legacyPeople(oid){
        return o; }
   catch(e){ return {}; }
 }
+/* เขียนดัชนี — ถ้า Rules รุ่นเก่ายังไม่รับป้าย selfAdded ให้ตัดป้ายแล้วเขียนส่วนอื่นต่อ */
+async function syncLookup(oid,u){
+  try{ await R(base0(oid)+"lookup").update(u); }
+  catch(e){
+    if(!isDenied(e)) throw e;
+    const v={}; Object.entries(u).forEach(([k,x])=>{ v[k]=x&&typeof x==="object"?noFlag(x,"selfAdded"):x; });
+    await R(base0(oid)+"lookup").update(v);
+  }
+}
 /* เทียบทะเบียนกับดัชนี คืนเฉพาะส่วนที่ต้องแก้ (null = ตรงกันแล้ว) */
 function lookupDiff(people, lookup){
   const P=people||{}, L=lookup||{}, u={}; let n=0;
   Object.entries(P).forEach(([id,p])=>{
     const w=lookupOf(p), h=L[id];
-    if(!h || h.empId!==w.empId || h.name!==w.name || h.position!==w.position || h.department!==w.department){
+    if(!h || h.empId!==w.empId || h.name!==w.name || h.position!==w.position || h.department!==w.department ||
+       !!h.selfAdded!==!!w.selfAdded){
       u[id]=w; n++;
     }
   });
@@ -1322,6 +1338,20 @@ function ColsM({rows,unit}){
     <div className="colx">{rows.map(r=>(<div className="colxl" key={r.k}>{r.k}</div>))}</div>
   </div>);
 }
+
+/* ภาษาไทยบนมือถือ: ให้ขึ้นบรรทัดใหม่ได้เฉพาะตรงช่องว่าง (วงเล็บทั้งก้อนไปด้วยกัน) — ชื่อ/คำไม่ขาดกลางคำ */
+function KeepWords({text}){
+  const out=[]; let buf="", depth=0;
+  String(text==null?"":text).split(" ").filter(Boolean).forEach(t=>{
+    buf = buf ? buf+" "+t : t;
+    depth += (t.match(/\(/g)||[]).length - (t.match(/\)/g)||[]).length;
+    if(depth<=0){ out.push(buf); buf=""; depth=0; }
+  });
+  if(buf) out.push(buf);
+  return out.map((t,i)=><React.Fragment key={i}>{i?" ":""}<span style={{whiteSpace:"nowrap"}}>{t}</span></React.Fragment>);
+}
+/* วลีที่ห้ามตัดกลาง — ตัดบรรทัดได้แค่ระหว่างวลี (ช่องว่างใส่ไว้ท้ายวลีเองตามข้อความจริง) */
+const Phr = ({p}) => p.map((t,i)=><React.Fragment key={i}>{i?<wbr/>:null}<span style={{whiteSpace:"nowrap"}}>{t}</span></React.Fragment>);
 
 function Msg({kind,children}){
   if(!children) return null;
@@ -2223,6 +2253,17 @@ function Page3Office({office,user,isMaster,onLogout,stock,people}){
     </div>}
     crumbs={[{t:"หน้าหลัก",to:""},{t:office.name}]}>
 
+    {(()=>{ const n=Object.values(people||{}).filter(p=>p&&p.selfAdded).length;
+      return n>0 && <div className="msg e" role="alert" data-k="office-self-alert"
+        style={{marginTop:8,marginBottom:4,border:"2px solid #F04438",background:"#FEF3F2",alignItems:"center",flexWrap:"wrap"}}>
+        <div style={{flex:"1 1 240px",minWidth:0,lineHeight:1.55}}>
+          <div style={{fontWeight:800,fontSize:15,color:"#B42318"}}>
+            <Phr p={["⚠ มี "+n+" คน","ที่ไม่มีในรายชื่อ ","แต่มาเบิกของ"]}/></div>
+          <div style={{color:"#7A271A",fontSize:13}}><Phr p={["พนักงานกรอกชื่อเองตอนเบิก ","รอแอดมินตรวจสอบ"]}/></div>
+        </div>
+        <button className="btn bad sm" onClick={()=>go("office/"+office.id+"/roster/self")}>ตรวจสอบรายชื่อ</button>
+      </div>; })()}
+
     <div className="grid3" style={{marginTop:8,marginBottom:24}}>
       <div className="stat" style={{"--sc":"#0D8577","--sb":"#E0F4F1"}}>
         <div className="stat-ic"><Ic n="users" s={21}/></div>
@@ -2284,11 +2325,12 @@ function Page3Office({office,user,isMaster,onLogout,stock,people}){
 }
 
 /* ═══════════════ หน้า 4 — จัดการรายชื่อ ═══════════════ */
-function Page4Roster({office,people}){
+function Page4Roster({office,people,initOnly}){
   const [form,setForm]   = useState({empId:"",fullName:"",position:"",department:""});
   const [editId,setEditId]=useState(null);
   const [show,setShow]   = useState(false);
   const [q,setQ]         = useState("");
+  const [only,setOnly]   = useState(initOnly||"all");   // all | self = เฉพาะรายชื่อที่พนักงานกรอกเองตอนเบิก
   const [censor,setCensor]=useState(true);
   const [msg,setMsg]     = useState("");
   const [err,setErr]     = useState("");
@@ -2299,16 +2341,21 @@ function Page4Roster({office,people}){
   const [imBusy,setImBusy] = useState(false);
   const base = "offices/"+office.id+"/people";
 
+  const selfCount = useMemo(()=>Object.values(people||{}).filter(p=>p&&p.selfAdded).length,[people]);
+  const total = Object.keys(people||{}).length;
+  useEffect(()=>{ if(only==="self" && selfCount===0 && total>0) setOnly("all"); },[only,selfCount,total]);
   const list = useMemo(()=>{
-    const arr=Object.entries(people||{}).map(([id,p])=>({id,...p}));
+    const arr=Object.entries(people||{}).map(([id,p])=>({id,...p})).filter(p=>only!=="self"||p.selfAdded);
     const s=q.trim().toLowerCase();
     const f=!s?arr:arr.filter(p=>
       (p.fullName||"").toLowerCase().indexOf(s)>=0 ||
       (p.empId||"").toLowerCase().indexOf(s)>=0 ||
       (p.position||"").toLowerCase().indexOf(s)>=0 ||
       (p.department||"").toLowerCase().indexOf(s)>=0);
-    return sortPersonnel(f);
-  },[people,q]);
+    /* รายชื่อที่กรอกเองขึ้นบนสุดเสมอ (ล่าสุดก่อน) แอดมินจะได้เห็นทันที */
+    const self=f.filter(p=>p.selfAdded).sort((a,b)=>(b.addedAt||0)-(a.addedAt||0));
+    return self.concat(sortPersonnel(f.filter(p=>!p.selfAdded)));
+  },[people,q,only]);
 
   const flash=(t)=>{ setMsg(t); setTimeout(()=>setMsg(""),4000); };
   const reset=()=>{ setForm({empId:"",fullName:"",position:"",department:""}); setEditId(null); setShow(false); setErr(""); };
@@ -2448,9 +2495,19 @@ function Page4Roster({office,people}){
     {msg && <Msg kind="s">{msg}</Msg>}
     {err && <Msg kind="e">{err}</Msg>}
 
-    {list.filter(p=>p.selfAdded).length>0 && <Msg kind="i"><div>
-      มี {list.filter(p=>p.selfAdded).length} รายชื่อที่พนักงานกรอกเองตอนมาเบิกของ —
-      กดแก้ไขเพื่อตรวจสอบและเติมข้อมูลให้ครบ ป้าย “เพิ่มเอง” จะหายไปเอง</div></Msg>}
+    {selfCount>0 && <div className="msg e" role="alert" data-k="self-alert"
+      style={{marginBottom:12,border:"2px solid #F04438",background:"#FEF3F2",alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{flex:"1 1 260px",minWidth:0,lineHeight:1.55}}>
+        <div style={{fontWeight:800,fontSize:15,color:"#B42318"}}>
+          <Phr p={["⚠ มี "+selfCount+" คน","ที่ไม่มีในรายชื่อ ","แต่มาเบิกของ"]}/></div>
+        <div style={{color:"#7A271A",fontSize:13}}>
+          <Phr p={["พนักงานกรอกชื่อเองตอนเบิก — ","ตรวจสอบตัวตน ","แล้วกดแก้ไข (✏️) ","เพื่อยืนยัน","และเติมข้อมูลให้ครบ · ",
+                   "ถ้าไม่ใช่พนักงานจริง ","กดลบ (🗑)"]}/></div>
+      </div>
+      {only!=="self"
+        ? <button className="btn bad sm" onClick={()=>setOnly("self")}>ดูเฉพาะ {selfCount} รายชื่อนี้</button>
+        : <button className="btn neutral sm" onClick={()=>setOnly("all")}>ดูทั้งหมด</button>}
+    </div>}
 
     <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
       <button className="btn" onClick={()=>{reset();setShow(true);}}><Ic n="plus" s={15}/> เพิ่มรายชื่อ</button>
@@ -2465,24 +2522,39 @@ function Page4Roster({office,people}){
       {list.length>0 && <button className="btn bad sm" onClick={delAll}><Ic n="trash" s={12}/> ลบทั้งหมด</button>}
     </div>
 
-    <div style={{marginBottom:12,maxWidth:380}}>
-      <input className="inp" placeholder="ค้นหาชื่อ หรือรหัส…" value={q} onChange={e=>setQ(e.target.value)}/>
+    <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center",marginBottom:12}}>
+      <input className="inp" style={{flex:"1 1 220px",maxWidth:380}} placeholder="ค้นหาชื่อ หรือรหัส…" value={q} onChange={e=>setQ(e.target.value)}/>
+      <div role="group" aria-label="กรองรายชื่อ" data-k="roster-filter" style={{display:"flex",gap:6}}>
+        <button className={"chip clk"+(only==="all"?" n":"")} aria-pressed={only==="all"}
+          style={only==="all"?{background:"var(--plum-700)",color:"#fff",borderColor:"var(--plum-700)"}:null}
+          onClick={()=>setOnly("all")}>ทั้งหมด {total}</button>
+        <button className={"chip clk"} aria-pressed={only==="self"} disabled={selfCount===0}
+          style={only==="self"?{background:"#B42318",color:"#fff",borderColor:"#B42318"}
+            : selfCount?{color:"#B42318",borderColor:"#F6AEA9",background:"#FEF3F2"}:{opacity:.5,cursor:"default"}}
+          onClick={()=>selfCount&&setOnly("self")}>⚠ ไม่มีในรายชื่อ {selfCount}</button>
+      </div>
     </div>
 
     <div className="tblwrap">
       {list.length===0
-        ? <Empty icon="users" title="ยังไม่มีรายชื่อ" desc="กดเพิ่มรายชื่อ หรือนำเข้าจากไฟล์ Excel"/>
+        ? (total>0 ? <Empty icon="users" title="ไม่พบรายชื่อที่ตรงกับการค้นหา" desc="ลองล้างคำค้น หรือกด “ทั้งหมด”"/>
+                   : <Empty icon="users" title="ยังไม่มีรายชื่อ" desc="กดเพิ่มรายชื่อ หรือนำเข้าจากไฟล์ Excel"/>)
         : <table className="t"><thead><tr>
             <th style={{width:40}}>#</th><th style={{width:110}}>รหัส</th><th>ชื่อ-นามสกุล</th>
             <th style={{width:130}}>ตำแหน่ง</th><th style={{width:100}}>สังกัด</th><th style={{width:82}}></th>
           </tr></thead><tbody>
-          {list.map((p,i)=>(<tr key={p.id}>
-            <td className="mono" style={{color:"var(--ink-3)"}}>{i+1}</td>
-            <td className="mono" style={{fontSize:12.5}}>{p.empId||"-"}</td>
-            <td style={{fontWeight:600}}>{censor?censorName(p.fullName):p.fullName}
-              {p.selfAdded && <span className="chip w" style={{marginLeft:8,fontSize:11}}>เพิ่มเอง</span>}</td>
-            <td style={{fontSize:12.5,color:"var(--ink-2)"}}>{p.position||"-"}</td>
-            <td style={{fontSize:12.5,color:"var(--ink-2)"}}>{p.department||"-"}</td>
+          {list.map((p,i)=>(<tr key={p.id} data-self={p.selfAdded?"1":undefined}
+            style={p.selfAdded?{background:"#FEF3F2",boxShadow:"inset 4px 0 0 #D92D20"}:null}>
+            <td className="mono" style={{color:p.selfAdded?"#B42318":"var(--ink-3)"}}>{i+1}</td>
+            <td className="mono" style={{fontSize:12.5,color:p.selfAdded?"#B42318":undefined}}>{p.empId||"-"}</td>
+            <td style={{fontWeight:600,color:p.selfAdded?"#B42318":undefined}}><KeepWords text={censor?censorName(p.fullName):p.fullName}/>
+              {p.selfAdded && <div style={{marginTop:4,display:"flex",gap:"4px 6px",flexWrap:"wrap",alignItems:"center"}}>
+                <span className="chip r" style={{fontSize:11.5,fontWeight:700,background:"#D92D20",color:"#fff",whiteSpace:"nowrap"}}>⚠ ไม่มีในรายชื่อ</span>
+                <span style={{fontSize:11.5,color:"#B42318",fontWeight:500}}>
+                  <Phr p={["กรอกเองตอนเบิก "].concat(p.addedAt>0?thDateTime(p.addedAt).split(" ").map((x,i,a)=>i<a.length-1?x+" ":x):[])}/></span>
+              </div>}</td>
+            <td style={{fontSize:12.5,color:"var(--ink-2)"}}><KeepWords text={p.position||"-"}/></td>
+            <td style={{fontSize:12.5,color:"var(--ink-2)"}}><KeepWords text={p.department||"-"}/></td>
             <td><div style={{display:"flex",gap:5,justifyContent:"flex-end"}}>
               <button className="iconbtn" title="แก้ไข" onClick={()=>{
                 setEditId(p.id); setForm({empId:p.empId||"",fullName:p.fullName||"",
@@ -2493,7 +2565,9 @@ function Page4Roster({office,people}){
           </tr>))}
         </tbody></table>}
     </div>
-    <div className="hint" style={{marginTop:8}}>รวม {list.length} คน</div>
+    <div className="hint" style={{marginTop:8}}>{only==="self"
+      ? "แสดงเฉพาะคนที่ไม่มีในรายชื่อ "+list.length+" คน (จากทั้งหมด "+total+" คน)"
+      : "รวม "+list.length+" คน"}</div>
 
     {plan && <Modal wide title="ตรวจสอบก่อนนำเข้า" sub={"อ่านจากไฟล์ได้ "+plan.total+" รายชื่อ"}
       onClose={()=>setPlan(null)}
@@ -3433,7 +3507,7 @@ function Page8Dashboard({user,isMaster,slipId}){
       key:w.id+"_"+ix, wid:w.id, ts:w.ts, date:w.date||isoOfTs(w.ts),
       officeId:w.officeId, office:OFC[w.officeId]||w.officeId,
       empId:w.empId||"", name:w.name||"", position:w.position||"", photo:w.photo||null,
-      homeOfficeId:w.homeOfficeId||"", ...it
+      homeOfficeId:w.homeOfficeId||"", unlisted:w.unlisted===true, ...it
     })));
     return out;
   },[raw]);
@@ -3798,8 +3872,11 @@ function Page8Dashboard({user,isMaster,slipId}){
               <div><span className="chip w" style={{fontSize:11,marginBottom:3}}>
                 ข้ามหน่วยงาน · {OFC[l.homeOfficeId]||l.homeOfficeId}</span></div>}
               <button className="namebtn"
-              onClick={()=>setPerson({officeId:l.officeId,empId:l.empId,name:l.name,position:l.position,office:l.office})}>
-              {l.name||"(ไม่ระบุ)"}</button></td>
+              onClick={()=>setPerson({officeId:l.officeId,empId:l.empId,name:l.name,position:l.position,office:l.office})}
+              style={l.unlisted?{color:"#B42318"}:undefined}>
+              {l.name||"(ไม่ระบุ)"}</button>
+              {l.unlisted && <div><span className="chip r" data-k="unlisted-chip"
+                style={{fontSize:11,marginTop:3,background:"#D92D20",color:"#fff",fontWeight:700,whiteSpace:"nowrap"}}>⚠ ไม่มีในรายชื่อ</span></div>}</td>
             <td><div style={{fontWeight:600}}>{l.itemName}</div>
               {(l.subType||l.size) && <div className="hint">{l.subType}
                 {l.subType&&l.size?" · ":""}{l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}</td>
@@ -3875,6 +3952,11 @@ function Page8Dashboard({user,isMaster,slipId}){
         : <>
           <RepeatWarning rep={repeatInfo(slip,slipHist)} office={{id:slip.officeId}}/>
           {row("วันที่ / เวลา",thDateTime(slip.ts))}
+          {slip.unlisted===true && <div role="alert" data-k="slip-unlisted" style={{background:"#FEF3F2",border:"2px solid #F04438",
+            borderRadius:10,padding:"9px 12px",marginBottom:10,color:"#B42318",fontWeight:700,fontSize:13.5,lineHeight:1.5}}>
+            <Phr p={["⚠ ผู้เบิกไม่มีในรายชื่อพนักงาน — ","กรอกชื่อเองตอนเบิก"]}/>
+            <div style={{fontWeight:500,color:"#7A271A",fontSize:12.5}}>
+              <Phr p={["ตรวจสอบตัวตน ","แล้วยืนยันในหน้า “จัดการรายชื่อ” ","ของ "+(OFC[slip.homeOfficeId||slip.officeId]||"")]}/></div></div>}
           {row("ผู้เบิก",slip.name||"-")}
           {row("รหัส",slip.empId||"-")}
           {row("ตำแหน่ง",slip.position||"-")}
@@ -4224,7 +4306,11 @@ function Page9Withdraw({office}){
                   selfAdded:true, addedAt:nowTs() };
       /* เขียนทะเบียน (ชื่อเต็ม ให้แอดมินตรวจ) กับดัชนี (ชื่อเซ็นเซอร์ ให้หน้า QR ค้น) ในคำสั่งเดียว */
       const key=R("offices/"+oid+"/people").push().key;
-      await R("offices/"+oid).update({ ["people/"+key]:rec, ["lookup/"+key]:lookupOf(rec) });
+      try{ await R("offices/"+oid).update({ ["people/"+key]:rec, ["lookup/"+key]:lookupOf(rec) }); }
+      catch(e1){
+        if(!isDenied(e1)) throw e1;
+        await R("offices/"+oid).update({ ["people/"+key]:rec, ["lookup/"+key]:noFlag(lookupOf(rec),"selfAdded") });
+      }
       setWho({ id:key, ...rec, homeOfficeId:oid });
       setPickName(nm); setReg(null); setErr("");
     }catch(e){ setRegErr(dbErr(e,"บันทึกรายชื่อ")); }
@@ -4274,10 +4360,16 @@ function Page9Withdraw({office}){
                   position:who.position||"", items, qty:cart.reduce((s,i)=>s+i.qty,0),
                   date:todayISO(), ts:nowTs(), photo:ph };
       if(who.homeOfficeId && who.homeOfficeId!==office.id) rec.homeOfficeId=who.homeOfficeId;
+      if(who.selfAdded===true) rec.unlisted=true;      /* ผู้เบิกยังไม่มีในทะเบียน (กรอกชื่อเอง) */
 
       /* บันทึกใบเบิกก่อน แล้วค่อยตัดสต๊อก — ถ้าตัดไม่สำเร็จจะย้อนใบเบิกคืน
          ทำให้ไม่มีกรณี "สต๊อกหายแต่ไม่มีประวัติ" */
-      const pushed = await R("withdrawals").push(rec);
+      let pushed;
+      try{ pushed = await R("withdrawals").push(rec); }
+      catch(e1){
+        if(!(rec.unlisted && isDenied(e1))) throw e1;
+        pushed = await R("withdrawals").push(noFlag(rec,"unlisted"));
+      }
       try{
         for(const it of cart){
           const res=await R("offices/"+office.id+"/stock/"+it.sku+"/qty").transaction(cq=>{
@@ -4652,7 +4744,7 @@ function useOfficeData(oid,enabled){
   useEffect(()=>{
     if(!oid||!enabled||!d.ok.people||!d.ok.lookup) return;
     const u=lookupDiff(d.people,d.lookup);
-    if(u) R(base0(oid)+"lookup").update(u).catch(()=>{});
+    if(u) syncLookup(oid,u).catch(()=>{});
   },[oid,enabled,d.people,d.lookup,d.ok.people,d.ok.lookup]);
   useEffect(()=>{
     if(!oid||!enabled||!d.ok.stockIn||!d.ok.buyLog) return;
@@ -4748,7 +4840,7 @@ function App(){
           const [ps,ls]=await Promise.all([R(base0(o.id)+"people").once("value"),
                                            R(base0(o.id)+"lookup").once("value")]);
           const u=lookupDiff(ps.val(),ls.val());
-          if(u) await R(base0(o.id)+"lookup").update(u);
+          if(u) await syncLookup(o.id,u);
         }catch(e){}
         try{
           const [si,bl]=await Promise.all([R(base0(o.id)+"stockIn").once("value"),
@@ -4806,7 +4898,7 @@ function App(){
         onBack={()=>go(myOffice?"office/"+myOffice:"")}/>;
 
     const page=seg[2];
-    if(page==="roster")   return <Page4Roster office={office} people={od.people}/>;
+    if(page==="roster")   return <Page4Roster office={office} people={od.people} initOnly={seg[3]==="self"?"self":"all"}/>;
     if(page==="items")    return <Page5Items office={office} stock={od.stock}/>;
     if(page==="stock-in") return <Page6StockIn office={office} catalog={catalog} freq={od.freq} user={realUser} stockIn={od.stockIn}
                                    subs={od.subTypes} subHide={od.subHide} isMaster={isMaster}/>;
