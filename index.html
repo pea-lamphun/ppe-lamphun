@@ -813,7 +813,8 @@ const lookupOf = (p) => {
 };
 /* ถ้ายังไม่ได้วาง Rules รุ่นที่รับป้าย selfAdded/unlisted — ตัดป้ายออกแล้วลองใหม่ ให้ใช้งานต่อได้ไม่สะดุด */
 const isDenied = (e) => /PERMISSION_DENIED|permission/i.test(String(e && (e.code||e.message) || e));
-const noFlag = (o, k) => { const c={...o}; delete c[k]; return c; };
+const noFlag = (o, k) => { const c={...o}; [].concat(k).forEach(x=>delete c[x]); return c; };
+const NOTE_MAX = 200;      /* หมายเหตุตอนเบิก — ยาวไม่เกิน (กฎฐานข้อมูลรับได้ถึง 300) */
 /* ── สำเนาสาธารณะของประวัติการเติมของ (buyLog) ──
    ให้ Dashboard แสดงได้ทุกคน โดยตัดของที่ห้ามเปิดเผยออก:
    by = บัญชีแอดมินที่เติม (คือ ID ล็อกอินของหน่วยงาน) · files = ลิงก์ใบสั่งซื้อ · การปรับปรุงยอด */
@@ -1290,11 +1291,14 @@ function Donut({rows,centerVal,centerLab,unit}){
   </div>);
 }
 
-/* ประวัติการเติมของเข้าคลังของรายการที่เลือก (Dashboard) — เห็นเฉพาะแอดมิน */
-function BuySection({item,loading,view}){
-  return (<div style={{marginBottom:18}}>
+/* ประวัติการเติมของเข้าคลัง (Dashboard) — ของรายการที่เลือก หรือทุกรายการของหน่วยงานที่เลือก */
+const BUY_SHOW = 30;           /* แสดงทีละเท่านี้ก่อน กดดูทั้งหมดได้ */
+function BuySection({title,loading,view}){
+  const [all,setAll]=useState(false);
+  const rows = view ? (all ? view.rows : view.rows.slice(0,BUY_SHOW)) : [];
+  return (<div style={{marginBottom:18}} data-k="buy-section">
     <div className="sec-head"><h2>ประวัติการเติมของเข้าคลัง</h2>
-      <span className="chip n">{item}</span></div>
+      <span className="chip n">{title}</span></div>
     {loading || !view
       ? <div className="card card-p"><span className="spin"></span> กำลังโหลดประวัติการเติม…</div>
       : <div className="card buycard">
@@ -1304,23 +1308,33 @@ function BuySection({item,loading,view}){
               <div key={t} className="bstat"><span>{t}</span><b>{v==null?"—":nFmt(v)}</b>{v!=null&&<small>{u}</small>}</div>)}
           </div>
           {view.rows.length===0
-            ? <div className="chempty">ยังไม่มีบันทึกการเติม “{item}” ในช่วงที่เลือก</div>
+            ? <div className="chempty">{view.allItems ? "ยังไม่มีบันทึกการเติมของเข้าคลังในช่วงที่เลือก"
+                                                     : <>ยังไม่มีบันทึกการเติม “{view.label}” ในช่วงที่เลือก</>}</div>
             : <div className="tblwrap" style={{border:"none",borderTop:"1px solid var(--line)",borderRadius:0}}>
               <table className="t"><thead><tr>
                 <th style={{width:104}}>วันที่รับเข้า</th>
                 {view.multi && <th style={{width:130}}>หน่วยงาน</th>}
-                <th>ประเภทย่อย / ไซส์</th>
+                <th>{view.allItems ? "รายการ" : "ประเภทย่อย / ไซส์"}</th>
                 <th style={{width:84}} className="num">จำนวน</th>
                 <th>หมายเหตุ</th>
               </tr></thead><tbody>
-              {view.rows.map(r=>(<tr key={r.oid+r.id}>
+              {rows.map(r=>(<tr key={r.oid+r.id} data-k="buy-row">
                 <td className="mono" style={{fontSize:12.5}}>{thDate(r.date)}</td>
                 {view.multi && <td style={{fontSize:13}}>{r.office}</td>}
-                <td>{[r.subType,r.size].filter(Boolean).join(" · ")||<span style={{color:"var(--ink-4)"}}>—</span>}</td>
-                <td className="num mono" style={{fontWeight:700}}>+{r.qty} <span style={{fontWeight:400,fontSize:12}}>{r.unit}</span></td>
-                <td style={{fontSize:13}}>{r.note||<span style={{color:"var(--ink-4)"}}>—</span>}</td>
+                {view.allItems
+                  ? <td><div style={{fontWeight:600}}><KeepWords text={r.itemName}/></div>
+                      {(r.subType||r.size) && <div className="hint">{[r.subType,r.size].filter(Boolean).join(" · ")}</div>}</td>
+                  : <td>{[r.subType,r.size].filter(Boolean).join(" · ")||<span style={{color:"var(--ink-4)"}}>—</span>}</td>}
+                <td className="num mono" style={{fontWeight:700,whiteSpace:"nowrap"}}>+{r.qty} <span style={{fontWeight:400,fontSize:12}}>{r.unit}</span></td>
+                <td style={{fontSize:13}}>{r.note
+                  ? <div style={{minWidth:150}}><NoteText text={r.note}/></div>   /* มือถือ: ไม่บีบจนคำขาด — เลื่อนตารางแทน */
+                  : <span style={{color:"var(--ink-4)"}}>—</span>}</td>
               </tr>))}
-              </tbody></table></div>}
+              </tbody></table>
+              {view.rows.length>BUY_SHOW && <div style={{padding:"10px 14px",borderTop:"1px solid var(--line)"}}>
+                <button className="btn ghost sm" data-k="buy-more" onClick={()=>setAll(v=>!v)}>
+                  {all ? "แสดงแค่ "+BUY_SHOW+" รายการล่าสุด" : "ดูทั้งหมด "+nFmt(view.rows.length)+" รายการ"}</button></div>}
+              </div>}
         </div>}
   </div>);
 }
@@ -1349,6 +1363,12 @@ function KeepWords({text}){
   });
   if(buf) out.push(buf);
   return out.map((t,i)=><React.Fragment key={i}>{i?" ":""}<span style={{whiteSpace:"nowrap"}}>{t}</span></React.Fragment>);
+}
+/* ข้อความที่ผู้ใช้พิมพ์เอง (หมายเหตุ): วงเล็บสั้นๆ ขึ้นบรรทัดใหม่ไปทั้งก้อน
+   ส่วนอื่นให้เบราว์เซอร์ตัดตามคำไทยเอง — ไม่ล็อกทั้งประโยค จะได้ไม่ล้นจอมือถือ */
+function NoteText({text}){
+  return String(text==null?"":text).split(/(\([^()]{1,24}\))/).map((t,i)=> i%2
+    ? <span key={i} style={{whiteSpace:"nowrap"}}>{t}</span> : <React.Fragment key={i}>{t}</React.Fragment>);
 }
 /* วลีที่ห้ามตัดกลาง — ตัดบรรทัดได้แค่ระหว่างวลี (ช่องว่างใส่ไว้ท้ายวลีเองตามข้อความจริง) */
 const Phr = ({p}) => p.map((t,i)=><React.Fragment key={i}>{i?<wbr/>:null}<span style={{whiteSpace:"nowrap"}}>{t}</span></React.Fragment>);
@@ -3507,7 +3527,7 @@ function Page8Dashboard({user,isMaster,slipId}){
       key:w.id+"_"+ix, wid:w.id, ts:w.ts, date:w.date||isoOfTs(w.ts),
       officeId:w.officeId, office:OFC[w.officeId]||w.officeId,
       empId:w.empId||"", name:w.name||"", position:w.position||"", photo:w.photo||null,
-      homeOfficeId:w.homeOfficeId||"", unlisted:w.unlisted===true, ...it
+      homeOfficeId:w.homeOfficeId||"", unlisted:w.unlisted===true, note:w.note||"", ...it
     })));
     return out;
   },[raw]);
@@ -3633,7 +3653,9 @@ function Page8Dashboard({user,isMaster,slipId}){
      อ่านจากสำเนาสาธารณะ (buyLog) ซึ่งไม่มีบัญชีผู้เติมและไฟล์แนบ */
   useEffect(()=>{ ensureSignedIn(); },[]);          /* คงเหลือในคลังต้องล็อกอิน (แบบไม่ระบุตัวตนก็ได้) */
   const buyScope = useMemo(()=>{
-    if(!applied.item) return [];
+    /* เลือกรายการ → ดูประวัติการเติมรายการนั้น · เลือกแค่หน่วยงาน → ดูทุกรายการของหน่วยงานนั้น
+       (หน่วยงานที่เติมของแต่ยังไม่มีใครเบิก ก็ยังเห็นประวัติการเติม) */
+    if(!applied.item && !applied.office) return [];
     return applied.office ? [applied.office] : OFFICES.map(o=>o.id);
   },[applied.item,applied.office]);
   const scopeKey = buyScope.join("|");
@@ -3656,13 +3678,13 @@ function Page8Dashboard({user,isMaster,slipId}){
   },[scopeKey]);
 
   const buyView = useMemo(()=>{
-    if(!buy || buy.loading || !applied.item) return null;
-    const item=applied.item, a=applied;
+    if(!buy || buy.loading || !buyScope.length) return null;
+    const item=applied.item, a=applied, allItems=!item;
     /* จับคู่ด้วยชื่อ หรือรหัสอุปกรณ์ — กันกรณีเปลี่ยนชื่อรายการภายหลัง */
     const ids=new Set(Object.entries(cat||{}).filter(([id,c])=>c&&c.name===item).map(([id])=>id));
     lines.forEach(l=>{ if(l.itemName===item && l.itemId) ids.add(l.itemId); });
-    const match=(e)=> !!e && (e.itemName===item || (!!e.itemId && ids.has(e.itemId)))
-                          && (!a.sub || tr(e.subType)===a.sub);
+    const match=(e)=> !!e && (allItems || ((e.itemName===item || (!!e.itemId && ids.has(e.itemId)))
+                          && (!a.sub || tr(e.subType)===a.sub)));
     const rows=[];
     Object.entries(buy.buyLog).forEach(([oid,m])=>Object.entries(m||{}).forEach(([id,e])=>{
       if(!match(e)) return;                                     /* สำเนามีแต่การรับของจริงอยู่แล้ว */
@@ -3674,18 +3696,20 @@ function Page8Dashboard({user,isMaster,slipId}){
     let stockNow=0;
     Object.values(buy.stock).forEach(m=>Object.values(m||{}).forEach(st=>{ if(match(st)) stockNow+=(st.qty||0); }));
     /* เบิกออก: ตามรายการ หน่วยงาน และช่วงวันที่ — ไม่กรองรายบุคคล จะได้เทียบกับยอดรับเข้าได้ตรง */
-    const outLines=lines.filter(l=>l.itemName===item && (!a.sub || tr(l.subType)===a.sub) && buyScope.indexOf(l.officeId)>=0 &&
+    const outLines=lines.filter(l=>(allItems || (l.itemName===item && (!a.sub || tr(l.subType)===a.sub))) && buyScope.indexOf(l.officeId)>=0 &&
       (!a.from||l.date>=a.from) && (!a.to||l.date<=a.to));
     const uc={}; rows.forEach(r=>{ if(r.unit) uc[r.unit]=(uc[r.unit]||0)+1; });
     outLines.forEach(l=>{ if(l.unit) uc[l.unit]=(uc[l.unit]||0)+0.5; });
     const unitTop=Object.entries(uc).sort((x,y)=>y[1]-x[1])[0];
     return {
-      item, sub:a.sub||"", label: item+(a.sub?" · "+a.sub:""), fileTag: a.sub||item,
+      item, sub:a.sub||"", allItems,
+      label: allItems ? "ทุกรายการ" : item+(a.sub?" · "+a.sub:""),
+      fileTag: allItems ? (OFC[a.office]||"ทุกรายการ") : (a.sub||item),
       rows, stockNow: buy.stockOk ? stockNow : null,
       received: rows.reduce((t,r)=>t+(r.qty||0),0),
       issued:   outLines.reduce((t,l)=>t+(l.qty||0),0),
       times:    new Set(rows.map(r=>r.oid+"|"+(r.batch||r.id))).size,
-      unit:     unitTop ? unitTop[0] : "",
+      unit:     allItems ? "ชิ้น" : (unitTop ? unitTop[0] : ""),    /* ทุกรายการ = หลายหน่วยปนกัน นับเป็นชิ้น */
       multi:    new Set(rows.map(r=>r.oid)).size>1
     };
   },[buy,applied,cat,lines,scopeKey]);
@@ -3734,9 +3758,9 @@ function Page8Dashboard({user,isMaster,slipId}){
       "ลำดับ":i+1,"วันที่":thDate(l.date),"เวลา":thDateTime(l.ts).split(" ")[1],
       "หน่วยงาน":l.office,"รหัสประจำตัว":l.empId,"ชื่อ-นามสกุล":l.name,"ตำแหน่ง":l.position,
       "รายการ":l.itemName,"ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-",
-      "จำนวน":l.qty,"หน่วย":l.unit
+      "จำนวน":l.qty,"หน่วย":l.unit,"หมายเหตุ":l.note||""
     }));
-    const wCols=[6,12,7,18,14,26,16,28,20,10,8,8];
+    const wCols=[6,12,7,18,14,26,16,28,20,10,8,8,36];
     if(!buyView){
       exportXLSX(wRows,"ประวัติการเบิกจ่าย","ประวัติการเบิกจ่าย-"+todayISO()+".xlsx",wCols);
       return;
@@ -3816,7 +3840,9 @@ function Page8Dashboard({user,isMaster,slipId}){
           <div className="stat-v">{v}</div></div></div>))}
     </div>
 
-    {applied.item && <BuySection item={applied.item+(applied.sub?" · "+applied.sub:"")} loading={!!(buy&&buy.loading)} view={buyView}/>}
+    {buyScope.length>0 && <BuySection key={scopeKey+"|"+applied.item+"|"+applied.sub+"|"+applied.from+"|"+applied.to}
+      title={applied.item ? applied.item+(applied.sub?" · "+applied.sub:"") : (OFC[applied.office]||"")+" · ทุกรายการ"}
+      loading={!buy || !!buy.loading} view={buyView}/>}
 
     {filtered.length>0 && <>
       <div className="sec-head"><h2>ภาพรวมการเบิกจ่าย</h2>
@@ -3864,7 +3890,7 @@ function Page8Dashboard({user,isMaster,slipId}){
             <th style={{width:86}}>หลักฐาน</th>
             {isMaster && <th style={{width:46}}></th>}
           </tr></thead><tbody>
-          {filtered.slice(0,600).map(l=>(<tr key={l.key}>
+          {filtered.slice(0,600).map((l,ix,arr)=>(<tr key={l.key}>
             <td className="mono" style={{fontSize:12}}>{thDateTime(l.ts)}</td>
             <td style={{fontSize:13}}>{l.office}</td>
             <td className="mono" style={{fontSize:12.5}}>{l.empId}</td>
@@ -3879,7 +3905,9 @@ function Page8Dashboard({user,isMaster,slipId}){
                 style={{fontSize:11,marginTop:3,background:"#D92D20",color:"#fff",fontWeight:700,whiteSpace:"nowrap"}}>⚠ ไม่มีในรายชื่อ</span></div>}</td>
             <td><div style={{fontWeight:600}}>{l.itemName}</div>
               {(l.subType||l.size) && <div className="hint">{l.subType}
-                {l.subType&&l.size?" · ":""}{l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}</td>
+                {l.subType&&l.size?" · ":""}{l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}
+              {l.note && (ix===0||arr[ix-1].wid!==l.wid) && <div className="noteline" data-k="w-note-line">
+                <Ic n="note" s={12}/><span><NoteText text={l.note}/></span></div>}</td>
             <td className="num mono" style={{fontWeight:700}}>{l.qty}</td>
             <td style={{fontSize:13}}>{l.unit}</td>
             <td>{l.photo&&safeUrl(l.photo.view)
@@ -3899,8 +3927,8 @@ function Page8Dashboard({user,isMaster,slipId}){
       footer={<><button className="btn neutral" onClick={()=>{
           exportXLSX(personLines.map((l,i)=>({"ลำดับ":i+1,"วันที่":thDate(l.date),"รายการ":l.itemName,
             "ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-","จำนวน":l.qty,"หน่วย":l.unit,
-            "รูปหลักฐาน":(l.photo&&safeUrl(l.photo.view))||"-"})),
-            "ประวัติรายบุคคล","ประวัติการเบิก-"+person.empId+".xlsx",[6,12,28,20,10,8,8,48]);
+            "หมายเหตุ":l.note||"","รูปหลักฐาน":(l.photo&&safeUrl(l.photo.view))||"-"})),
+            "ประวัติรายบุคคล","ประวัติการเบิก-"+person.empId+".xlsx",[6,12,28,20,10,8,8,36,48]);
         }}><Ic n="file" s={14}/> ส่งออก Excel</button>
         <button className="btn" onClick={()=>setPerson(null)}>ปิด</button></>}>
       <div className="hint" style={{marginBottom:10}}>เบิกทั้งหมด {personLines.length} รายการ ·
@@ -3909,12 +3937,14 @@ function Page8Dashboard({user,isMaster,slipId}){
         <table className="t"><thead><tr><th style={{width:104}}>วันที่</th><th>รายการ</th>
           <th style={{width:70}} className="num">จำนวน</th><th style={{width:58}}>หน่วย</th>
           <th style={{width:64}}>รูป</th></tr></thead>
-          <tbody>{personLines.map(l=>{ const si=personShots.findIndex(x=>x.wid===l.wid);
+          <tbody>{personLines.map((l,ix)=>{ const si=personShots.findIndex(x=>x.wid===l.wid);
             return (<tr key={l.key}>
             <td className="mono" style={{fontSize:12.5}}>{thDate(l.date)}</td>
             <td><div style={{fontWeight:600}}>{l.itemName}</div>
               {(l.subType||l.size)&&<div className="hint">{l.subType}{l.subType&&l.size?" · ":""}
-                {l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}</td>
+                {l.size&&(l.variant==="color"?l.size:"ไซส์ "+l.size)}</div>}
+              {l.note && (ix===0||personLines[ix-1].wid!==l.wid) && <div className="noteline" data-k="p-note-line">
+                <Ic n="note" s={12}/><span><NoteText text={l.note}/></span></div>}</td>
             <td className="num mono" style={{fontWeight:700}}>{l.qty}</td>
             <td style={{fontSize:13}}>{l.unit}</td>
             <td style={{padding:"6px 10px"}}>{si>=0
@@ -3975,6 +4005,8 @@ function Page8Dashboard({user,isMaster,slipId}){
                   <td className="num mono" style={{fontWeight:800}}>{tot}</td><td style={{fontSize:13}}>ชิ้น</td></tr>
               </tbody></table>
           </div>
+          {slip.note && <div className="noteline" data-k="slip-note" style={{fontSize:13.5,marginTop:10}}>
+            <Ic n="note" s={13}/><span><b>หมายเหตุ:</b> <NoteText text={slip.note}/></span></div>}
           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:12}}>
             {slip.photo&&safeUrl(slip.photo.view) &&
               <a className="btn neutral sm" href={safeUrl(slip.photo.view)} target="_blank" rel="noopener noreferrer"
@@ -4018,14 +4050,17 @@ function Page8Dashboard({user,isMaster,slipId}){
           ? <div style={{fontSize:12,color:"#8A8296",padding:"6px 0"}}>ไม่มีบันทึกการเติมของในช่วงที่เลือก</div>
           : <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <thead><tr style={{background:"#F3ECF8"}}>
-              {["ลำดับ","วันที่รับเข้า"].concat(buyView.multi?["หน่วยงาน"]:[]).concat([buyView.sub?"ไซส์ / สี":"ประเภทย่อย / ไซส์","จำนวน","หมายเหตุ"]).map((h,i)=>
+              {["ลำดับ","วันที่รับเข้า"].concat(buyView.multi?["หน่วยงาน"]:[]).concat([buyView.allItems?"รายการ":buyView.sub?"ไซส์ / สี":"ประเภทย่อย / ไซส์","จำนวน","หมายเหตุ"]).map((h,i)=>
                 <th key={i} style={{border:"1px solid #E5E1EB",padding:"5px 6px",textAlign:"left",fontWeight:700}}>{h}</th>)}
             </tr></thead>
             <tbody>{buyView.rows.map((r,i)=>(<tr key={r.oid+r.id}>
               <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",textAlign:"center"}}>{i+1}</td>
               <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",whiteSpace:"nowrap"}}>{thDate(r.date)}</td>
               {buyView.multi && <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{r.office}</td>}
-              <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{(buyView.sub?[r.size]:[r.subType,r.size]).filter(Boolean).join(" · ")||"—"}</td>
+              <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{buyView.allItems
+                ? <><b>{r.itemName}</b>{(r.subType||r.size) &&
+                    <span style={{color:"#6B6478"}}> · {[r.subType,r.size].filter(Boolean).join(" · ")}</span>}</>
+                : (buyView.sub?[r.size]:[r.subType,r.size]).filter(Boolean).join(" · ")||"—"}</td>
               <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",textAlign:"center",whiteSpace:"nowrap"}}><b>{r.qty}</b> {r.unit}</td>
               <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{r.note||"—"}</td>
             </tr>))}</tbody>
@@ -4062,7 +4097,9 @@ function Page8Dashboard({user,isMaster,slipId}){
             applied.sub?"ไซส์ / สี":applied.item?"ประเภทย่อย / ไซส์":"รายการ","จำนวน"]).map((h,i)=>
             <th key={i} style={{border:"1px solid #E5E1EB",padding:"5px 6px",textAlign:"left",fontWeight:700}}>{h}</th>)}
         </tr></thead>
-        <tbody>{filtered.slice(0,PDF_MAX_ROWS).map((l,i)=>(<tr key={l.key}>
+        <tbody>{filtered.length===0 && <tr><td colSpan={9} style={{border:"1px solid #E5E1EB",padding:"8px 6px",
+            textAlign:"center",color:"#8A8296"}}>ยังไม่มีการเบิกในช่วงที่เลือก</td></tr>}
+          {filtered.slice(0,PDF_MAX_ROWS).map((l,i,arr)=>(<tr key={l.key}>
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",textAlign:"center",width:34}}>{i+1}</td>
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",whiteSpace:"nowrap"}}>{thDate(l.date)}</td>
           {!applied.office && <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",whiteSpace:"nowrap"}}>{l.office}</td>}
@@ -4072,7 +4109,9 @@ function Page8Dashboard({user,isMaster,slipId}){
             {applied.sub ? (l.size||"—")
              : applied.item ? ([l.subType,l.size].filter(Boolean).join(" · ")||"—")
              : <><b>{l.itemName}</b>{(l.subType||l.size) &&
-                  <span style={{color:"#6B6478"}}> · {[l.subType,l.size].filter(Boolean).join(" · ")}</span>}</>}</td>
+                  <span style={{color:"#6B6478"}}> · {[l.subType,l.size].filter(Boolean).join(" · ")}</span>}</>}
+            {l.note && (i===0||arr[i-1].wid!==l.wid) &&
+              <div style={{color:"#854D0E",fontSize:10.5,marginTop:1}}>หมายเหตุ: <NoteText text={l.note}/></div>}</td>
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",textAlign:"center",whiteSpace:"nowrap"}}><b>{l.qty}</b> {l.unit}</td>
         </tr>))}</tbody>
       </table>
@@ -4205,6 +4244,7 @@ function Page9Withdraw({office}){
   },[focusAt]);
 
   const [reg,setReg]        =useState(null);
+  const [wNote,setWNote]    =useState("");      /* หมายเหตุของผู้เบิก (ไม่บังคับ) */
   const [regErr,setRegErr]  =useState("");
   const [regBusy,setRegBusy]=useState(false);   // รายชื่อหน่วยงานอื่น (ค้นหาข้ามหน่วยงานได้ทันที)
 
@@ -4361,14 +4401,18 @@ function Page9Withdraw({office}){
                   date:todayISO(), ts:nowTs(), photo:ph };
       if(who.homeOfficeId && who.homeOfficeId!==office.id) rec.homeOfficeId=who.homeOfficeId;
       if(who.selfAdded===true) rec.unlisted=true;      /* ผู้เบิกยังไม่มีในทะเบียน (กรอกชื่อเอง) */
+      const nt=wNote.trim().slice(0,NOTE_MAX);
+      if(nt) rec.note=nt;                               /* หมายเหตุของผู้เบิก */
 
       /* บันทึกใบเบิกก่อน แล้วค่อยตัดสต๊อก — ถ้าตัดไม่สำเร็จจะย้อนใบเบิกคืน
          ทำให้ไม่มีกรณี "สต๊อกหายแต่ไม่มีประวัติ" */
       let pushed;
       try{ pushed = await R("withdrawals").push(rec); }
       catch(e1){
-        if(!(rec.unlisted && isDenied(e1))) throw e1;
-        pushed = await R("withdrawals").push(noFlag(rec,"unlisted"));
+        /* Rules รุ่นเก่ายังไม่รู้จักฟิลด์ใหม่ — ตัดออกแล้วบันทึกต่อ ไม่ให้การเบิกสะดุด */
+        const extra=["unlisted","note"].filter(k=>k in rec);
+        if(!(extra.length && isDenied(e1))) throw e1;
+        pushed = await R("withdrawals").push(noFlag(rec,extra));
       }
       try{
         for(const it of cart){
@@ -4387,7 +4431,7 @@ function Page9Withdraw({office}){
 
       const refNo = String(pushed.key||"").replace(/[^A-Za-z0-9]/g,"").slice(-6).toUpperCase();
       setDone({ ...rec, id:pushed.key, refNo, fullName:who.fullName, shot:preview, homeName:OFC[who.homeOfficeId]||"" });
-      setCart([]); setPhoto(null);
+      setCart([]); setPhoto(null); setWNote("");
     }catch(e){ setErr(dbErr(e,"บันทึกการเบิก")+" · รายการและรูปที่เลือกไว้ยังอยู่ครบ กดยืนยันใหม่ได้เลย"); }
     setStage(""); setBusy(false);
   };
@@ -4440,6 +4484,8 @@ function Page9Withdraw({office}){
             <span>รวมทั้งสิ้น</span>
             <span className="mono">{done.items.length} รายการ · {totQty} ชิ้น</span>
           </div>
+          {done.note && <div className="noteline" data-k="done-note" style={{fontSize:13.5,marginTop:10}}>
+            <Ic n="note" s={13}/><span><b>หมายเหตุ:</b> <NoteText text={done.note}/></span></div>}
 
           <div className="hr" style={{margin:"16px 0 10px"}}></div>
           <div className="lbl" style={{marginBottom:6}}>ข้อมูลผู้เบิก</div>
@@ -4462,7 +4508,7 @@ function Page9Withdraw({office}){
             <Ic n="eye" s={15}/> เปิดรูปต้นฉบับที่จัดเก็บไว้</a>}
 
           <button className="btn block" style={{marginTop:10}}
-            onClick={()=>{setDone(null);setWho(null);setPickName("");setPhoto(null);setPreview("");}}>
+            onClick={()=>{setDone(null);setWho(null);setPickName("");setPhoto(null);setPreview("");setWNote("");}}>
             เบิกรายการใหม่</button>
         </div>
       </div>
@@ -4662,6 +4708,14 @@ function Page9Withdraw({office}){
           <button className="iconbtn danger" onClick={()=>setCart(c=>c.filter((_,ix)=>ix!==i))}>
             <Ic n="trash" s={13}/></button>
         </div>))}
+        <div className="field" style={{marginTop:12,marginBottom:0}}>
+          <label className="lbl" htmlFor="w-note">หมายเหตุ <span style={{fontWeight:400,color:"var(--ink-3)"}}>(ถ้ามี)</span></label>
+          <textarea id="w-note" data-k="w-note" className="inp" rows={2} maxLength={NOTE_MAX} value={wNote}
+            placeholder="เช่น ของเดิมชำรุด, เบิกแทนเพื่อน"
+            onChange={e=>setWNote(e.target.value)} style={{resize:"vertical",minHeight:64}}/>
+          {wNote.trim() && <div className="hint" style={{marginTop:4,textAlign:"right"}}>
+            {wNote.trim().length}/{NOTE_MAX} ตัวอักษร</div>}
+        </div>
         <button className="btn ok block" style={{marginTop:14,padding:"13px 16px",fontSize:16}}
           onClick={confirm} disabled={busy||(REQUIRE_PHOTO&&!photo)}>
           <Ic n="check" s={18}/> ยืนยันการเบิก</button>
