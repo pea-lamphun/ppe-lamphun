@@ -4667,7 +4667,7 @@ function Page9Withdraw({office}){
               render={o=>(<div style={{display:"flex",gap:10,alignItems:"baseline"}}>
                 <span className="mono" style={{fontSize:12,color:"var(--plum-700)",minWidth:62}}>{o.empId||"—"}</span>
                 <span><div style={{fontWeight:600}}>{o.label}</div>
-                  <small>{o.position||""}{o.position&&o.officeId!==office.id?" · ":""}
+                  <small>{o.position||""}{o.position&&(o.officeId!==office.id||o.department)?" · ":""}
                     {o.officeId!==office.id
                       ? <b style={{color:"var(--warn)"}}>{o.officeName}</b>
                       : (o.department||"")}</small></span>
@@ -4733,8 +4733,8 @@ function Page9Withdraw({office}){
                       fontWeight:700,boxShadow:"0 0 0 2px var(--zc)"}:{background:"#fff"}}>
                     {v.variant==="color" && <span className="dotc" style={{background:colorHex(v.size)}}></span>}
                     {v.subType?v.subType+" ":""}
-                    {v.size && (v.variant==="color"?(v.subType?"· "+v.size:""):"ไซส์ "+v.size)}
-                    <span className="mono" style={{opacity:.65,fontSize:11}}>· เหลือ {v.left}</span>
+                    {v.size && (v.variant==="color"?(v.subType?"· "+v.size:v.size):"ไซส์ "+v.size)}
+                    <span className="mono" style={{opacity:.65,fontSize:11}}> · เหลือ {v.left}</span>
                   </button>))}
               </div>
             </div>}
