@@ -4947,8 +4947,45 @@ function App(){
     if(!isMaster||!catalog||seeded.current) return;
     if(Object.keys(catalog).length>0){ seeded.current=true; return; }
     seeded.current=true;
-    const up={}; SEED_ITEMS.forEach((it,i)=>{ up[R("catalog").push().key]={...it,order:i}; });
+    /* ใช้คีย์ตายตัว — แอดมินหลัก 2 คนเข้าระบบพร้อมกันก็เขียนทับคีย์เดิม ไม่เกิดรายการซ้ำ */
+    const up={}; SEED_ITEMS.forEach((it,i)=>{ up["seed"+String(i+1).padStart(2,"0")]={...it,order:i}; });
     R("catalog").update(up).catch(()=>{});
+  },[isMaster,catalog]);
+
+  /* รายการอุปกรณ์ซ้ำกันทุกอย่าง (ชื่อ ส่วนร่างกาย ตัวเลือก หน่วย) → ลบตัวที่ไม่มีใครใช้ เก็บตัวที่ใช้แล้ว
+     อ่านการใช้งานจากของในคลัง ประวัติเติมของ ประเภทย่อย และใบเบิก — อ่านไม่ครบเมื่อไร ไม่ลบอะไรเลย */
+  const deduped=useRef(false);
+  useEffect(()=>{
+    if(!isMaster||!catalog||deduped.current) return;
+    deduped.current=true;
+    const groups={};
+    Object.entries(catalog).forEach(([k,v])=>{
+      if(!v||!v.name) return;
+      const g=[String(v.name).trim(),v.zone||"",v.variant||"",v.unit||""].join("|");
+      (groups[g]=groups[g]||[]).push(k);
+    });
+    const dups=Object.values(groups).filter(ks=>ks.length>1);
+    if(!dups.length) return;
+    (async()=>{
+      const used=new Set();
+      const mark=(o)=>{ if(o&&o.itemId) used.add(o.itemId); };
+      const ws=(await R("withdrawals").once("value")).val()||{};
+      Object.values(ws).forEach(w=>Object.values((w&&w.items)||{}).forEach(mark));
+      for(const o of OFFICES){
+        const [st,si,sub,hide,fq]=await Promise.all(["stock","stockIn","subTypes","subHide","freq"]
+          .map(n=>R(base0(o.id)+n).once("value").then(s=>s.val()||{})));
+        Object.values(st).forEach(mark); Object.values(si).forEach(mark);
+        [sub,hide,fq].forEach(m=>Object.keys(m).forEach(k=>used.add(k)));
+      }
+      const ord=(k)=>Number(catalog[k].order)||0;
+      const up={};
+      dups.forEach(ks=>{
+        const inUse=ks.filter(k=>used.has(k));
+        const keep=new Set(inUse.length?inUse:[ks.slice().sort((a,b)=>ord(a)-ord(b)||(a<b?-1:1))[0]]);
+        ks.forEach(k=>{ if(!keep.has(k)) up[k]=null; });
+      });
+      if(Object.keys(up).length) await R("catalog").update(up);
+    })().catch(()=>{});
   },[isMaster,catalog]);
 
   /* แอดมินหลักเข้าระบบ → ตรวจและสร้างดัชนีค้นหารายชื่อให้ครบทุกหน่วยงาน */
