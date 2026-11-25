@@ -814,7 +814,9 @@ const lookupOf = (p) => {
 /* ถ้ายังไม่ได้วาง Rules รุ่นที่รับป้าย selfAdded/unlisted — ตัดป้ายออกแล้วลองใหม่ ให้ใช้งานต่อได้ไม่สะดุด */
 const isDenied = (e) => /PERMISSION_DENIED|permission/i.test(String(e && (e.code||e.message) || e));
 const noFlag = (o, k) => { const c={...o}; [].concat(k).forEach(x=>delete c[x]); return c; };
-const NOTE_MAX = 200;      /* หมายเหตุตอนเบิก — ยาวไม่เกิน (กฎฐานข้อมูลรับได้ถึง 300) */
+const NOTE_MAX = 200;
+/* คนเดียวกันในสถิติ/ประวัติ — ใช้รหัส ถ้าไม่มีรหัสใช้ชื่อในหน่วยงานเดียวกัน */
+const personKey = (l) => l.officeId+"|"+(l.empId ? "#"+l.empId : "~"+(l.name||""));      /* หมายเหตุตอนเบิก — ยาวไม่เกิน (กฎฐานข้อมูลรับได้ถึง 300) */
 /* ── สำเนาสาธารณะของประวัติการเติมของ (buyLog) ──
    ให้ Dashboard แสดงได้ทุกคน โดยตัดของที่ห้ามเปิดเผยออก:
    by = บัญชีแอดมินที่เติม (คือ ID ล็อกอินของหน่วยงาน) · files = ลิงก์ใบสั่งซื้อ · การปรับปรุงยอด */
@@ -1018,14 +1020,14 @@ function exportRosterTemplate(officeName){
     ["วิธีกรอกแบบฟอร์มรายชื่อ — "+officeName],
     [""],
     ["1. กรอกในชีต “รายชื่อ” ตั้งแต่แถวที่ 2 ลงไป 1 แถวต่อ 1 คน (ไม่ต้องแก้หัวคอลัมน์)"],
-    ["2. รหัสประจำตัว (ต้องมี): รหัสพนักงาน 6–7 หลัก · ลูกจ้างหรือคนงานที่ไม่มีรหัส ใช้เบอร์โทร 10 หลักแทน"],
-    ["    ช่องนี้ตั้งเป็นข้อความไว้แล้ว พิมพ์ 0 นำหน้าเบอร์โทรได้เลย · แถวที่ไม่มีรหัส ระบบจะข้าม ไม่นำเข้า"],
+    ["2. รหัสประจำตัว (ไม่บังคับ): รหัสพนักงาน 6–7 หลัก หรือเบอร์โทร 10 หลัก · ใช้พิมพ์ค้นหาตอนเบิก ถ้าไม่มีก็ค้นด้วยชื่อได้"],
+    ["    ช่องนี้ตั้งเป็นข้อความไว้แล้ว พิมพ์ 0 นำหน้าเบอร์โทรได้เลย"],
     ["3. ชื่อ-นามสกุล (ต้องมี): ใส่คำนำหน้าด้วย เช่น นายสมชาย ใจดี"],
     ["4. ตำแหน่ง และ สังกัด: ไม่บังคับ เช่น พชง.6 / ผกส. / คนงาน (ก่อสร้าง 1)"],
     ["5. ช่องลำดับ: เว้นว่างได้"],
     ["6. บันทึกไฟล์ แล้วไปที่ “จัดการรายชื่อ” → กด “นำเข้ารายชื่อ” → เลือกไฟล์นี้ → ตรวจสอบ → ยืนยันนำเข้า"],
     [""],
-    ["ระบบจับคู่คนเดิมด้วยรหัสประจำตัว — นำเข้าซ้ำได้ ไม่เกิดรายชื่อซ้ำ ใช้แก้ตำแหน่งหรือสังกัดทีละหลายคนได้"],
+    ["ระบบจับคู่คนเดิมด้วยรหัสประจำตัว (ไม่มีรหัสจับด้วยชื่อ) — นำเข้าซ้ำได้ ไม่เกิดรายชื่อซ้ำ ใช้แก้ตำแหน่งหรือสังกัดทีละหลายคนได้"],
   ]);
   how["!cols"]=[{wch:100}];
   const wb=XLSX.utils.book_new();
@@ -2413,8 +2415,8 @@ function Page4Roster({office,people,initOnly}){
   const save=async()=>{
     setErr("");
     if(!form.fullName.trim()){ setErr("กรอกชื่อ-นามสกุล"); return; }
-    if(!form.empId.trim()){ setErr("กรอกรหัสประจำตัว — ใช้เป็นรหัสที่พนักงานพิมพ์ตอนเบิกของ"); return; }
-    const dup=Object.entries(people||{}).find(([id,p])=>id!==editId && String(p.empId||"").trim()===form.empId.trim());
+    /* รหัสไม่บังคับ — ถ้าใส่ต้องไม่ซ้ำกับคนอื่น */
+    const dup=form.empId.trim() && Object.entries(people||{}).find(([id,p])=>id!==editId && String(p.empId||"").trim()===form.empId.trim());
     if(dup){ setErr("รหัสประจำตัว "+form.empId+" ซ้ำกับ "+dup[1].fullName); return; }
     const data={ empId:form.empId.trim(), fullName:form.fullName.trim(),
                  position:form.position.trim(), department:form.department.trim(),
@@ -2461,12 +2463,14 @@ function Page4Roster({office,people,initOnly}){
 
         /* ทะเบียนที่มีอยู่เดิม */
         const cur=Object.entries(people||{}).map(([id,p])=>({id,...p}));
-        const byId={}, byName={};
+        const byId={}, byName={}, byCens={}, censN={};
         cur.forEach(p=>{
           const k=String(p.empId||"").trim();
           if(k) byId[k]=p;
           const nk=String(p.fullName||"").trim();
           if(nk && !byName[nk]) byName[nk]=p;
+          /* ไฟล์ที่ส่งออกแบบเซ็นเซอร์ — จับคู่ชื่อ *** กับชื่อเต็มในระบบ (เฉพาะชื่อที่ไม่ซ้ำกัน) */
+          const ck=nk && censorName(nk); if(ck){ censN[ck]=(censN[ck]||0)+1; byCens[ck]=p; }
         });
 
         /* อ่านไฟล์ + ตัดแถวซ้ำภายในไฟล์เอง */
@@ -2487,12 +2491,13 @@ function Page4Roster({office,people,initOnly}){
           seen[key]=fileRows.length; fileRows.push(rec);
         }
 
-        const add=[], upd=[], skip=[]; let same=0, noId=0;
+        const add=[], upd=[]; let same=0, noId=0;
         const touched={};
         fileRows.forEach(rec=>{
-          const hit = (rec.empId && byId[rec.empId]) || byName[rec.fullName] || null;
-          if(!hit){ if(rec.empId) add.push(rec); else skip.push(rec); return; }   /* คนใหม่ต้องมีรหัส (ใช้ตอนเบิก) */
-          if(!rec.empId) noId++;
+          const hit = (rec.empId && byId[rec.empId]) || byName[rec.fullName]
+                   || (/\*\*\*$/.test(rec.fullName) && censN[rec.fullName]===1 && byCens[rec.fullName]) || null;
+          if(!rec.empId && !(hit && hit.empId)) noId++;   /* ไม่มีรหัสทั้งในไฟล์และในระบบ */
+          if(!hit){ add.push(rec); return; }
           touched[hit.id]=true;
           /* ไฟล์ที่ส่งออกแบบเซ็นเซอร์นามสกุล — อย่าเอาชื่อ *** ไปทับชื่อเต็มที่มีอยู่ */
           const keepFull = /\*\*\*$/.test(rec.fullName) && hit.fullName && !/\*\*\*$/.test(hit.fullName)
@@ -2506,13 +2511,13 @@ function Page4Roster({office,people,initOnly}){
         });
         const missing=cur.filter(p=>!touched[p.id]);
 
-        if(!add.length && !upd.length && !missing.length && !skip.length){
+        if(!add.length && !upd.length && !missing.length){
           setErr(""); flash(fileRows.length ? "ข้อมูลในไฟล์ตรงกับระบบอยู่แล้ว ("+same+" คน) ไม่มีอะไรต้องเปลี่ยน"
                                             : "ไฟล์ยังไม่มีรายชื่อ — กรอกตั้งแต่แถวที่ 2 ลงไป แล้วนำเข้าอีกครั้ง");
           return;
         }
         setErr(""); setDoUpd(true); setDoDel(false);
-        setPlan({ add, upd, same, missing, noId, skip, dupFile, blank, total:fileRows.length });
+        setPlan({ add, upd, same, missing, noId, dupFile, blank, total:fileRows.length });
       }catch(ex){ setErr("อ่านไฟล์ไม่สำเร็จ: "+ex.message); }
     };
     rd.readAsArrayBuffer(f); e.target.value="";
@@ -2656,21 +2661,8 @@ function Page4Roster({office,people,initOnly}){
       {(plan.noId>0 || plan.dupFile>0) && <Msg kind="i">
         <div>
           {plan.dupFile>0 && <>ไฟล์มีรหัสซ้ำกันเอง {plan.dupFile} แถว — ใช้แถวล่างสุดเป็นหลัก<br/></>}
-          {plan.noId>0 && <>มี {plan.noId} แถวที่ไม่มีรหัสในไฟล์ แต่มีชื่อตรงกับคนในระบบ — ใช้รหัสเดิมในระบบต่อ</>}
+          {plan.noId>0 && <span data-k="import-noid"><Phr p={["มี "+plan.noId+" คนที่ไม่มีรหัสประจำตัว — ","นำเข้าได้ตามปกติ ","ตอนเบิกให้ค้นด้วยชื่อ"]}/></span>}
         </div></Msg>}
-
-      {plan.skip && plan.skip.length>0 && <div style={{marginBottom:14}} data-k="import-skip">
-        <Msg kind="e"><div><b style={{whiteSpace:"nowrap"}}>ข้าม {plan.skip.length} แถว ไม่นำเข้า</b> <Phr p={["— ไม่มีรหัสประจำตัว ",
-          "(ระบบต้องมีรหัส","ไว้ให้พิมพ์ตอนเบิก · ","ใช้เบอร์โทรแทนได้)"]}/></div></Msg>
-        <div className="tblwrap" style={{maxHeight:140,overflowY:"auto"}}>
-          <table className="t"><tbody>
-            {plan.skip.slice(0,100).map((a,i)=>(<tr key={i}>
-              <td style={{fontWeight:500}}>{a.fullName}</td>
-              <td style={{fontSize:12.5,color:"var(--ink-3)"}}>{a.position||"—"}</td>
-            </tr>))}
-          </tbody></table></div>
-      </div>}
-
       {plan.add.length>0 && <div style={{marginBottom:14}}>
         <div className="lbl">เพิ่มใหม่ {plan.add.length} คน</div>
         <div className="tblwrap" style={{maxHeight:180,overflowY:"auto"}}>
@@ -2724,9 +2716,11 @@ function Page4Roster({office,people,initOnly}){
               <button className="btn" onClick={save}>บันทึก</button></>}>
       <Msg kind="e">{err}</Msg>
       <div className="grid2">
-        <div className="field"><label className="lbl">รหัสประจำตัว <span className="req">*</span></label>
-          <input className="inp mono" value={form.empId} autoFocus
-            onChange={e=>setForm({...form,empId:e.target.value})}/></div>
+        <div className="field"><label className="lbl">รหัสประจำตัว <span style={{fontWeight:400,color:"var(--ink-3)"}}>(ถ้ามี)</span></label>
+          <input className="inp mono" value={form.empId} autoFocus data-k="form-empid"
+            placeholder="รหัสพนักงาน หรือเบอร์โทร"
+            onChange={e=>setForm({...form,empId:e.target.value})}/>
+          <div className="hint" style={{marginTop:4}}><Phr p={["ใช้พิมพ์ค้นหาตอนเบิก · ","ไม่มีรหัส ","ก็ค้นด้วยชื่อได้"]}/></div></div>
         <div className="field"><label className="lbl">ชื่อ-นามสกุล <span className="req">*</span></label>
           <input className="inp" value={form.fullName} placeholder="นายเกียรติพงษ์ นุ่มนวล"
             onChange={e=>setForm({...form,fullName:e.target.value})}/></div>
@@ -3636,7 +3630,7 @@ function Page8Dashboard({user,isMaster,slipId}){
 
   const stats = useMemo(()=>{
     const people=new Set(), offs=new Set(); let qty=0;
-    filtered.forEach(l=>{ people.add(l.officeId+"|"+l.empId); offs.add(l.officeId); qty+=(l.qty||0); });
+    filtered.forEach(l=>{ people.add(personKey(l)); offs.add(l.officeId); qty+=(l.qty||0); });
     return { rows:filtered.length, people:people.size, offices:offs.size, qty };
   },[filtered]);
 
@@ -3657,7 +3651,7 @@ function Page8Dashboard({user,isMaster,slipId}){
   const byGroup = useMemo(()=>{
     const seen={}, m={};
     filtered.forEach(l=>{
-      const key=l.officeId+"|"+l.empId;
+      const key=personKey(l);
       if(seen[key]) return; seen[key]=1;
       const g=getGroup(l.position); m[g]=(m[g]||0)+1;
     });
@@ -3772,7 +3766,8 @@ function Page8Dashboard({user,isMaster,slipId}){
 
   const personLines = useMemo(()=>{
     if(!person) return [];
-    return lines.filter(l=>l.officeId===person.officeId && l.empId===person.empId);
+    return lines.filter(l=>l.officeId===person.officeId &&
+      (person.empId ? l.empId===person.empId : (!l.empId && l.name===person.name)));
   },[lines,person]);
   /* รูปหลักฐานของคนนี้ — 1 รูปต่อ 1 ใบเบิก เรียงตามตาราง */
   const personShots = useMemo(()=>{
@@ -3949,7 +3944,7 @@ function Page8Dashboard({user,isMaster,slipId}){
           {filtered.slice(0,600).map((l,ix,arr)=>(<tr key={l.key}>
             <td className="mono" style={{fontSize:12}}>{thDateTime(l.ts)}</td>
             <td style={{fontSize:13}}>{l.office}</td>
-            <td className="mono" style={{fontSize:12.5}}>{l.empId}</td>
+            <td className="mono" style={{fontSize:12.5}}>{l.empId||"—"}</td>
             <td>{l.homeOfficeId && l.homeOfficeId!==l.officeId &&
               <div><span className="chip w" style={{fontSize:11,marginBottom:3}}>
                 ข้ามหน่วยงาน · {OFC[l.homeOfficeId]||l.homeOfficeId}</span></div>}
@@ -3978,13 +3973,13 @@ function Page8Dashboard({user,isMaster,slipId}){
     {filtered.length>600 && <div className="hint" style={{marginTop:8}}>
       แสดง 600 แถวแรกจาก {filtered.length} แถว</div>}
 
-    {person && <Modal wide title={person.name} sub={person.office+" · รหัส "+person.empId+(person.position?" · "+person.position:"")}
+    {person && <Modal wide title={person.name} sub={person.office+" · รหัส "+(person.empId||"—")+(person.position?" · "+person.position:"")}
       onClose={()=>setPerson(null)}
       footer={<><button className="btn neutral" onClick={()=>{
           exportXLSX(personLines.map((l,i)=>({"ลำดับ":i+1,"วันที่":thDate(l.date),"รายการ":l.itemName,
             "ประเภทย่อย":l.subType||"-","ไซส์/สี":l.size||"-","จำนวน":l.qty,"หน่วย":l.unit,
             "หมายเหตุ":l.note||"","รูปหลักฐาน":(l.photo&&safeUrl(l.photo.view))||"-"})),
-            "ประวัติรายบุคคล","ประวัติการเบิก-"+person.empId+".xlsx",[6,12,28,20,10,8,8,36,48]);
+            "ประวัติรายบุคคล","ประวัติการเบิก-"+(person.empId||String(person.name||"").replace(/[*\s]+/g,""))+".xlsx",[6,12,28,20,10,8,8,36,48]);
         }}><Ic n="file" s={14}/> ส่งออก Excel</button>
         <button className="btn" onClick={()=>setPerson(null)}>ปิด</button></>}>
       <div className="hint" style={{marginBottom:10}}>เบิกทั้งหมด {personLines.length} รายการ ·
@@ -4159,7 +4154,7 @@ function Page8Dashboard({user,isMaster,slipId}){
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",textAlign:"center",width:34}}>{i+1}</td>
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",whiteSpace:"nowrap"}}>{thDate(l.date)}</td>
           {!applied.office && <td style={{border:"1px solid #E5E1EB",padding:"3px 6px",whiteSpace:"nowrap"}}>{l.office}</td>}
-          <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{l.empId}</td>
+          <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{l.empId||"—"}</td>
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>{l.name}</td>
           <td style={{border:"1px solid #E5E1EB",padding:"3px 6px"}}>
             {applied.sub ? (l.size||"—")
