@@ -2799,21 +2799,11 @@ function VariantFields({item,val,onChange,subTypes,sizes,nonce,onManage}){
   </>);
 }
 
-function Page6StockIn({office,catalog,freq,user,stockIn,subs,subHide,isMaster}){
-  const blank={ itemId:"", subType:"", size:"", qty:1, unit:"" };
-  const [addN,setAddN]=useState(0);         // นับครั้งที่กดเพิ่ม — ใช้รีเซ็ตช่องเลือกไซส์
-  const [subMgr,setSubMgr]=useState(false); // หน้าต่างจัดการประเภทย่อย (แอดมินหลัก)
-  const [date,setDate]=useState(todayISO());
-  const [row,setRow]  = useState(blank);
-  const [pending,setPending]=useState([]);
+/* ═══ ประวัติการเติมของเข้าคลัง — ใช้ร่วมกันในหน้า "เพิ่มรายการเข้าคลัง" และ "ดูรายการคงคลัง" ═══
+   แก้จำนวน/วันที่ หรือลบรายการได้ · ยอดคงคลังปรับตามอัตโนมัติ */
+function StockInHistory({office,stockIn}){
   const [err,setErr]=useState("");
   const [msg,setMsg]=useState("");
-  const [busy,setBusy]=useState(false);
-  const [mgr,setMgr]=useState(false);
-  const [mgrName,setMgrName]=useState("");
-  const [attach,setAttach]=useState([]);
-  const [note,setNote]=useState("");
-  const [stage,setStage]=useState("");
   const [showAll,setShowAll]=useState(false);
   const [edit,setEdit]=useState(null);      // รายการที่กำลังแก้ไข
   const [editQty,setEditQty]=useState(1);
@@ -2869,6 +2859,87 @@ function Page6StockIn({office,catalog,freq,user,stockIn,subs,subHide,isMaster}){
     });
     return Object.values(g).sort((a,b)=>b.ts-a.ts);
   },[stockIn]);
+
+  return (<div data-k="stockin-history">
+    <div className="sec-head" style={{marginTop:30}}>
+      <h2>ประวัติการเติมของเข้าคลัง</h2>
+      <div className="tb-spacer"></div>
+      {batches.length>0 && <span className="chip n">{batches.length} ครั้ง</span>}
+    </div>
+    {msg && <Msg kind="s">{msg}</Msg>}
+    {err && <Msg kind="e">{err}</Msg>}
+    <div className="tblwrap">
+      {batches.length===0
+        ? <Empty icon="clock" title="ยังไม่มีประวัติการเติมของ"/>
+        : <table className="t"><thead><tr>
+            <th style={{width:104}}>วันที่</th><th>รายการ</th>
+            <th style={{width:74}} className="num">รวม</th><th style={{width:180}}>เอกสารแนบ</th>
+          </tr></thead><tbody>
+          {(showAll?batches:batches.slice(0,15)).map(b=>(<tr key={b.key}>
+            <td className="mono" style={{fontSize:12.5,verticalAlign:"top",paddingTop:12}}>{thDate(b.date)}</td>
+            <td>{b.rows.map(r=>(<div key={r.id} style={{display:"flex",gap:8,alignItems:"center",padding:"3px 0"}}>
+              <span style={{flex:1,minWidth:0}}>{r.itemName}
+                {(r.subType||r.size) && <span className="hint"> · {r.subType}
+                  {r.subType&&r.size?" · ":""}{r.size||""}</span>}</span>
+              <span className="mono" style={{whiteSpace:"nowrap",color:r.qty<0?"var(--bad)":"var(--ink-2)"}}>
+                {r.qty>0?"+":""}{r.qty} {r.unit}</span>
+              <button className="iconbtn" title="แก้ไขจำนวน"
+                onClick={()=>{ setEdit(r); setEditQty(Math.abs(r.qty)||1); setEditDate(r.date||todayISO()); }}>
+                <Ic n="pen" s={12}/></button>
+              <button className="iconbtn danger" title="ลบรายการนี้"
+                onClick={()=>delEntry(r)}><Ic n="trash" s={12}/></button>
+            </div>))}
+            {b.kind==="adjust" && <div style={{marginTop:5}}>
+              <span className="chip w">ปรับปรุงยอด</span>
+              {b.note && <span className="hint" style={{marginLeft:8}}>เหตุผล: {b.note}</span>}
+            </div>}
+            {b.kind!=="adjust" && b.note && <div className="noteline">
+              <Ic n="note" s={12}/><span>{b.note}</span></div>}</td>
+            <td className="num mono" style={{fontWeight:500,verticalAlign:"top",paddingTop:12}}>
+              {b.rows.reduce((s,r)=>s+(r.qty||0),0)}</td>
+            <td style={{verticalAlign:"top",paddingTop:10}}><FileChips files={b.files}/></td>
+          </tr>))}
+        </tbody></table>}
+    </div>
+    {batches.length>15 && <div style={{marginTop:10,textAlign:"center"}}>
+      <button className="btn neutral sm" onClick={()=>setShowAll(!showAll)}>
+        {showAll?"ย่อรายการ":"ดูทั้งหมด ("+batches.length+" ครั้ง)"}</button></div>}
+
+    {edit && <Modal title="แก้ไขรายการที่เติมเข้าคลัง" sub={fullLabel(edit)} onClose={()=>setEdit(null)}
+      footer={<><button className="btn neutral" onClick={()=>setEdit(null)}>ยกเลิก</button>
+              <button className="btn" onClick={saveEdit}>บันทึก</button></>}>
+      <div className="grid2">
+        <div className="field"><label className="lbl">วันที่</label>
+          <input className="inp mono" type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}/></div>
+        <div className="field"><label className="lbl">จำนวน ({edit.unit})</label>
+          <QtyPicker value={editQty} onChange={setEditQty}/></div>
+      </div>
+      <div className="msg i">
+        {(()=>{ const nv=(edit.qty<0?-1:1)*Math.max(1,parseInt(editQty)||1), d=nv-edit.qty;
+          return <div>เดิม <b>{edit.qty} {edit.unit}</b> — ถ้าแก้เป็น <b>{nv} {edit.unit}</b> ยอดคงคลังจะ
+            {d===0 ? " ไม่เปลี่ยน" : (d>0 ? " เพิ่มขึ้น "+d : " ลดลง "+(-d))+" "+edit.unit}</div>; })()}
+      </div>
+    </Modal>}
+  </div>);
+}
+
+function Page6StockIn({office,catalog,freq,user,stockIn,subs,subHide,isMaster}){
+  const blank={ itemId:"", subType:"", size:"", qty:1, unit:"" };
+  const [addN,setAddN]=useState(0);         // นับครั้งที่กดเพิ่ม — ใช้รีเซ็ตช่องเลือกไซส์
+  const [subMgr,setSubMgr]=useState(false); // หน้าต่างจัดการประเภทย่อย (แอดมินหลัก)
+  const [date,setDate]=useState(todayISO());
+  const [row,setRow]  = useState(blank);
+  const [pending,setPending]=useState([]);
+  const [err,setErr]=useState("");
+  const [msg,setMsg]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [mgr,setMgr]=useState(false);
+  const [mgrName,setMgrName]=useState("");
+  const [attach,setAttach]=useState([]);
+  const [note,setNote]=useState("");
+  const [stage,setStage]=useState("");
+
+
 
   const items = useMemo(()=>{
     const arr=Object.entries(catalog||{}).map(([id,c])=>({id,...c}));
@@ -3116,64 +3187,8 @@ function Page6StockIn({office,catalog,freq,user,stockIn,subs,subHide,isMaster}){
         <Ic n="check" s={16}/> {busy&&stage?stage:"ยืนยันเพิ่มรายการ"}</button>
     </div>
 
-    {/* ── ประวัติการเติมของเข้าคลัง ── */}
-    <div className="sec-head" style={{marginTop:30}}>
-      <h2>ประวัติการเติมของเข้าคลัง</h2>
-      <div className="tb-spacer"></div>
-      {batches.length>0 && <span className="chip n">{batches.length} ครั้ง</span>}
-    </div>
-    <div className="tblwrap">
-      {batches.length===0
-        ? <Empty icon="clock" title="ยังไม่มีประวัติการเติมของ"/>
-        : <table className="t"><thead><tr>
-            <th style={{width:104}}>วันที่</th><th>รายการ</th>
-            <th style={{width:74}} className="num">รวม</th><th style={{width:180}}>เอกสารแนบ</th>
-          </tr></thead><tbody>
-          {(showAll?batches:batches.slice(0,15)).map(b=>(<tr key={b.key}>
-            <td className="mono" style={{fontSize:12.5,verticalAlign:"top",paddingTop:12}}>{thDate(b.date)}</td>
-            <td>{b.rows.map(r=>(<div key={r.id} style={{display:"flex",gap:8,alignItems:"center",padding:"3px 0"}}>
-              <span style={{flex:1,minWidth:0}}>{r.itemName}
-                {(r.subType||r.size) && <span className="hint"> · {r.subType}
-                  {r.subType&&r.size?" · ":""}{r.size||""}</span>}</span>
-              <span className="mono" style={{whiteSpace:"nowrap",color:r.qty<0?"var(--bad)":"var(--ink-2)"}}>
-                {r.qty>0?"+":""}{r.qty} {r.unit}</span>
-              <button className="iconbtn" title="แก้ไขจำนวน"
-                onClick={()=>{ setEdit(r); setEditQty(Math.abs(r.qty)||1); setEditDate(r.date||todayISO()); }}>
-                <Ic n="pen" s={12}/></button>
-              <button className="iconbtn danger" title="ลบรายการนี้"
-                onClick={()=>delEntry(r)}><Ic n="trash" s={12}/></button>
-            </div>))}
-            {b.kind==="adjust" && <div style={{marginTop:5}}>
-              <span className="chip w">ปรับปรุงยอด</span>
-              {b.note && <span className="hint" style={{marginLeft:8}}>เหตุผล: {b.note}</span>}
-            </div>}
-            {b.kind!=="adjust" && b.note && <div className="noteline">
-              <Ic n="note" s={12}/><span>{b.note}</span></div>}</td>
-            <td className="num mono" style={{fontWeight:500,verticalAlign:"top",paddingTop:12}}>
-              {b.rows.reduce((s,r)=>s+(r.qty||0),0)}</td>
-            <td style={{verticalAlign:"top",paddingTop:10}}><FileChips files={b.files}/></td>
-          </tr>))}
-        </tbody></table>}
-    </div>
-    {batches.length>15 && <div style={{marginTop:10,textAlign:"center"}}>
-      <button className="btn neutral sm" onClick={()=>setShowAll(!showAll)}>
-        {showAll?"ย่อรายการ":"ดูทั้งหมด ("+batches.length+" ครั้ง)"}</button></div>}
 
-    {edit && <Modal title="แก้ไขรายการที่เติมเข้าคลัง" sub={fullLabel(edit)} onClose={()=>setEdit(null)}
-      footer={<><button className="btn neutral" onClick={()=>setEdit(null)}>ยกเลิก</button>
-              <button className="btn" onClick={saveEdit}>บันทึก</button></>}>
-      <div className="grid2">
-        <div className="field"><label className="lbl">วันที่</label>
-          <input className="inp mono" type="date" value={editDate} onChange={e=>setEditDate(e.target.value)}/></div>
-        <div className="field"><label className="lbl">จำนวน ({edit.unit})</label>
-          <QtyPicker value={editQty} onChange={setEditQty}/></div>
-      </div>
-      <div className="msg i">
-        {(()=>{ const nv=(edit.qty<0?-1:1)*Math.max(1,parseInt(editQty)||1), d=nv-edit.qty;
-          return <div>เดิม <b>{edit.qty} {edit.unit}</b> — ถ้าแก้เป็น <b>{nv} {edit.unit}</b> ยอดคงคลังจะ
-            {d===0 ? " ไม่เปลี่ยน" : (d>0 ? " เพิ่มขึ้น "+d : " ลดลง "+(-d))+" "+edit.unit}</div>; })()}
-      </div>
-    </Modal>}
+    <StockInHistory office={office} stockIn={stockIn}/>
 
     {mgr && <ItemManager catalog={catalog} initName={mgrName} onClose={()=>{ setMgr(false); setMgrName(""); }}/>}
 
@@ -3462,6 +3477,8 @@ function Page7Stock({office,stock,stockIn}){
           </tbody></table></div>
         </div>))}
       </>}
+
+    <StockInHistory office={office} stockIn={stockIn}/>
 
     {adj && <Modal title="ปรับปรุงยอดคงเหลือ" sub={fullLabel(adj)}
       onClose={()=>{setAdj(null);setAdjNote("");}}
