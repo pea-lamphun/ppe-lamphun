@@ -1004,6 +1004,35 @@ function exportXLSX(rows, sheetName, filename, colWidths){
   XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,30));
   XLSX.writeFile(wb, filename);
 }
+/* แบบฟอร์ม Excel เปล่าสำหรับกรอกรายชื่อแล้วกด "นำเข้ารายชื่อ" — หัวคอลัมน์ตรงกับที่ตัวนำเข้าอ่าน
+   ช่องรหัสตั้งเป็น "ข้อความ" ไว้ก่อน เบอร์โทรที่ขึ้นต้นด้วย 0 จะได้ไม่หาย */
+const ROSTER_HEAD = ["ลำดับ","รหัสประจำตัว","ชื่อ-นามสกุล","ตำแหน่ง","สังกัด"];
+function exportRosterTemplate(officeName){
+  const ROWS=300;
+  const ws=XLSX.utils.aoa_to_sheet([ROSTER_HEAD]);
+  for(let r=1;r<=ROWS;r++) ws[XLSX.utils.encode_cell({r,c:1})]={t:"s",v:"",z:"@"};
+  ws["!ref"]=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:ROWS,c:ROSTER_HEAD.length-1}});
+  ws["!cols"]=[7,16,32,22,16].map(w=>({wch:w}));
+  ws["!autofilter"]={ref:"A1:E1"};
+  const how=XLSX.utils.aoa_to_sheet([
+    ["วิธีกรอกแบบฟอร์มรายชื่อ — "+officeName],
+    [""],
+    ["1. กรอกในชีต “รายชื่อ” ตั้งแต่แถวที่ 2 ลงไป 1 แถวต่อ 1 คน (ไม่ต้องแก้หัวคอลัมน์)"],
+    ["2. รหัสประจำตัว (ต้องมี): รหัสพนักงาน 6–7 หลัก · ลูกจ้างหรือคนงานที่ไม่มีรหัส ใช้เบอร์โทร 10 หลักแทน"],
+    ["    ช่องนี้ตั้งเป็นข้อความไว้แล้ว พิมพ์ 0 นำหน้าเบอร์โทรได้เลย · แถวที่ไม่มีรหัส ระบบจะข้าม ไม่นำเข้า"],
+    ["3. ชื่อ-นามสกุล (ต้องมี): ใส่คำนำหน้าด้วย เช่น นายสมชาย ใจดี"],
+    ["4. ตำแหน่ง และ สังกัด: ไม่บังคับ เช่น พชง.6 / ผกส. / คนงาน (ก่อสร้าง 1)"],
+    ["5. ช่องลำดับ: เว้นว่างได้"],
+    ["6. บันทึกไฟล์ แล้วไปที่ “จัดการรายชื่อ” → กด “นำเข้ารายชื่อ” → เลือกไฟล์นี้ → ตรวจสอบ → ยืนยันนำเข้า"],
+    [""],
+    ["ระบบจับคู่คนเดิมด้วยรหัสประจำตัว — นำเข้าซ้ำได้ ไม่เกิดรายชื่อซ้ำ ใช้แก้ตำแหน่งหรือสังกัดทีละหลายคนได้"],
+  ]);
+  how["!cols"]=[{wch:100}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อ");
+  XLSX.utils.book_append_sheet(wb, how, "วิธีกรอก");
+  XLSX.writeFile(wb, "แบบฟอร์มรายชื่อ-"+officeName+".xlsx");
+}
 function exportXLSXMulti(sheets, filename){
   const wb=XLSX.utils.book_new();
   sheets.forEach(sh=>{
@@ -2377,7 +2406,8 @@ function Page4Roster({office,people,initOnly}){
     return self.concat(sortPersonnel(f.filter(p=>!p.selfAdded)));
   },[people,q,only]);
 
-  const flash=(t)=>{ setMsg(t); setTimeout(()=>setMsg(""),4000); };
+  const flashT=useRef(null);   /* ข้อความใหม่ต้องไม่ถูกตัวจับเวลาของข้อความก่อนหน้าลบทิ้ง */
+  const flash=(t)=>{ setMsg(t); clearTimeout(flashT.current); flashT.current=setTimeout(()=>setMsg(""),4000); };
   const reset=()=>{ setForm({empId:"",fullName:"",position:"",department:""}); setEditId(null); setShow(false); setErr(""); };
 
   const save=async()=>{
@@ -2445,7 +2475,11 @@ function Page4Roster({office,people,initOnly}){
         for(let i=1;i<rows.length;i++){
           const r=rows[i]; const nm=String((r&&r[cNm])||"").trim();
           if(!nm){ blank++; continue; }
-          const rec={ empId:cId>=0?String(r[cId]||"").trim():"", fullName:nm,
+          let rid=cId>=0?String(r[cId]==null?"":r[cId]).trim():"";
+          /* ช่องรหัสในไฟล์เป็นตัวเลข เบอร์โทรเลยหาย 0 ข้างหน้า (เช่น 812345678) — เติมกลับให้ */
+          if(cId>=0 && typeof r[cId]==="number" && /^[689]\d{8}$/.test(rid)) rid="0"+rid;
+          if(rid==="-") rid="";
+          const rec={ empId:rid, fullName:nm,
                       position:cPo>=0?String(r[cPo]||"").trim():"",
                       department:cDe>=0?String(r[cDe]||"").trim():"" };
           const key=rec.empId||("~"+nm);
@@ -2453,14 +2487,17 @@ function Page4Roster({office,people,initOnly}){
           seen[key]=fileRows.length; fileRows.push(rec);
         }
 
-        const add=[], upd=[]; let same=0, noId=0;
+        const add=[], upd=[], skip=[]; let same=0, noId=0;
         const touched={};
         fileRows.forEach(rec=>{
           const hit = (rec.empId && byId[rec.empId]) || byName[rec.fullName] || null;
+          if(!hit){ if(rec.empId) add.push(rec); else skip.push(rec); return; }   /* คนใหม่ต้องมีรหัส (ใช้ตอนเบิก) */
           if(!rec.empId) noId++;
-          if(!hit){ add.push(rec); return; }
           touched[hit.id]=true;
-          const next={ empId:rec.empId||hit.empId||"", fullName:rec.fullName,
+          /* ไฟล์ที่ส่งออกแบบเซ็นเซอร์นามสกุล — อย่าเอาชื่อ *** ไปทับชื่อเต็มที่มีอยู่ */
+          const keepFull = /\*\*\*$/.test(rec.fullName) && hit.fullName && !/\*\*\*$/.test(hit.fullName)
+                           && censorName(hit.fullName)===rec.fullName;
+          const next={ empId:rec.empId||hit.empId||"", fullName:keepFull?hit.fullName:rec.fullName,
                        position:rec.position, department:rec.department };
           const diffs=FIELDS.filter(([k])=>String(hit[k]||"")!==String(next[k]||""))
                             .map(([k,label])=>({k,label,from:hit[k]||"—",to:next[k]||"—"}));
@@ -2469,12 +2506,13 @@ function Page4Roster({office,people,initOnly}){
         });
         const missing=cur.filter(p=>!touched[p.id]);
 
-        if(!add.length && !upd.length && !missing.length){
-          setErr(""); flash("ข้อมูลในไฟล์ตรงกับระบบอยู่แล้ว ("+same+" คน) ไม่มีอะไรต้องเปลี่ยน");
+        if(!add.length && !upd.length && !missing.length && !skip.length){
+          setErr(""); flash(fileRows.length ? "ข้อมูลในไฟล์ตรงกับระบบอยู่แล้ว ("+same+" คน) ไม่มีอะไรต้องเปลี่ยน"
+                                            : "ไฟล์ยังไม่มีรายชื่อ — กรอกตั้งแต่แถวที่ 2 ลงไป แล้วนำเข้าอีกครั้ง");
           return;
         }
         setErr(""); setDoUpd(true); setDoDel(false);
-        setPlan({ add, upd, same, missing, noId, dupFile, blank, total:fileRows.length });
+        setPlan({ add, upd, same, missing, noId, skip, dupFile, blank, total:fileRows.length });
       }catch(ex){ setErr("อ่านไฟล์ไม่สำเร็จ: "+ex.message); }
     };
     rd.readAsArrayBuffer(f); e.target.value="";
@@ -2533,7 +2571,10 @@ function Page4Roster({office,people,initOnly}){
       <button className="btn" onClick={()=>{reset();setShow(true);}}><Ic n="plus" s={15}/> เพิ่มรายชื่อ</button>
       <button className="btn ghost" onClick={()=>fileRef.current.click()}><Ic n="up2" s={15}/> นำเข้ารายชื่อ</button>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={doImport}/>
-      <button className="btn ghost" onClick={doExport} disabled={!list.length}><Ic n="dl" s={15}/> ส่งออกรายชื่อ</button>
+      {total===0
+        ? <button className="btn ghost" data-k="roster-template" onClick={()=>exportRosterTemplate(office.name)}>
+            <Ic n="dl" s={15}/> ดาวน์โหลดแบบฟอร์ม Excel</button>
+        : <button className="btn ghost" onClick={doExport} disabled={!list.length}><Ic n="dl" s={15}/> ส่งออกรายชื่อ</button>}
       <label style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--ink-2)",
         background:"#fff",border:"1px solid var(--line)",borderRadius:8,padding:"7px 11px",cursor:"pointer"}}>
         <input type="checkbox" checked={censor} onChange={e=>setCensor(e.target.checked)}/> เซ็นเซอร์นามสกุล
@@ -2558,7 +2599,10 @@ function Page4Roster({office,people,initOnly}){
     <div className="tblwrap">
       {list.length===0
         ? (total>0 ? <Empty icon="users" title="ไม่พบรายชื่อที่ตรงกับการค้นหา" desc="ลองล้างคำค้น หรือกด “ทั้งหมด”"/>
-                   : <Empty icon="users" title="ยังไม่มีรายชื่อ" desc="กดเพิ่มรายชื่อ หรือนำเข้าจากไฟล์ Excel"/>)
+                   : <Empty icon="users" title="ยังไม่มีรายชื่อ"
+                       desc={<Phr p={["ดาวน์โหลดแบบฟอร์ม Excel ","ไปกรอก ","แล้วกด “นำเข้ารายชื่อ” ","หรือกด “เพิ่มรายชื่อ” ","ทีละคน"]}/>}
+                       action={<button className="btn" data-k="empty-template" onClick={()=>exportRosterTemplate(office.name)}>
+                         <Ic n="dl" s={15}/> ดาวน์โหลดแบบฟอร์ม Excel</button>}/>)
         : <table className="t"><thead><tr>
             <th style={{width:40}}>#</th><th style={{width:110}}>รหัส</th><th>ชื่อ-นามสกุล</th>
             <th style={{width:130}}>ตำแหน่ง</th><th style={{width:100}}>สังกัด</th><th style={{width:82}}></th>
@@ -2593,7 +2637,7 @@ function Page4Roster({office,people,initOnly}){
       onClose={()=>setPlan(null)}
       footer={<>
         <button className="btn neutral" onClick={()=>setPlan(null)}>ยกเลิก</button>
-        <button className="btn" onClick={runImport} disabled={imBusy}>
+        <button className="btn" onClick={runImport} disabled={imBusy || (!plan.add.length && !plan.upd.length && !plan.missing.length)}>
           {imBusy&&<span className="spin" style={{borderColor:"rgba(255,255,255,.4)",borderTopColor:"#fff"}}></span>}
           ยืนยันนำเข้า</button>
       </>}>
@@ -2612,8 +2656,20 @@ function Page4Roster({office,people,initOnly}){
       {(plan.noId>0 || plan.dupFile>0) && <Msg kind="i">
         <div>
           {plan.dupFile>0 && <>ไฟล์มีรหัสซ้ำกันเอง {plan.dupFile} แถว — ใช้แถวล่างสุดเป็นหลัก<br/></>}
-          {plan.noId>0 && <>มี {plan.noId} แถวที่ไม่มีรหัสประจำตัว ระบบจับคู่ด้วยชื่อแทน คนกลุ่มนี้จะเบิกของไม่ได้จนกว่าจะใส่รหัส</>}
+          {plan.noId>0 && <>มี {plan.noId} แถวที่ไม่มีรหัสในไฟล์ แต่มีชื่อตรงกับคนในระบบ — ใช้รหัสเดิมในระบบต่อ</>}
         </div></Msg>}
+
+      {plan.skip && plan.skip.length>0 && <div style={{marginBottom:14}} data-k="import-skip">
+        <Msg kind="e"><div><b style={{whiteSpace:"nowrap"}}>ข้าม {plan.skip.length} แถว ไม่นำเข้า</b> <Phr p={["— ไม่มีรหัสประจำตัว ",
+          "(ระบบต้องมีรหัส","ไว้ให้พิมพ์ตอนเบิก · ","ใช้เบอร์โทรแทนได้)"]}/></div></Msg>
+        <div className="tblwrap" style={{maxHeight:140,overflowY:"auto"}}>
+          <table className="t"><tbody>
+            {plan.skip.slice(0,100).map((a,i)=>(<tr key={i}>
+              <td style={{fontWeight:500}}>{a.fullName}</td>
+              <td style={{fontSize:12.5,color:"var(--ink-3)"}}>{a.position||"—"}</td>
+            </tr>))}
+          </tbody></table></div>
+      </div>}
 
       {plan.add.length>0 && <div style={{marginBottom:14}}>
         <div className="lbl">เพิ่มใหม่ {plan.add.length} คน</div>
