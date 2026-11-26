@@ -329,16 +329,6 @@ table.t tbody tr:hover{background:var(--paper)}
 .stp-line.done{background:#3DD07F}
 @media(max-width:640px){.stp-l{display:none}.stp-line{margin:0 7px}.wt{font-size:16.5px}}
 .wwrap{max-width:660px;margin:0 auto;padding:0 18px 80px}
-.iabox{margin-top:16px;border-radius:16px;overflow:hidden;border:2px solid #E8710A;
-  box-shadow:0 8px 24px rgba(232,113,10,.20)}
-.iahead{background:linear-gradient(135deg,#F59A2E,#D2610A);color:#fff;padding:14px 18px;
-  display:flex;align-items:center;gap:11px}
-.iahead b{font-size:16px;line-height:1.3}
-.iabody{background:#FFF8EF;padding:16px 18px}
-.iastep{display:flex;gap:10px;padding:5px 0;font-size:14px;line-height:1.5}
-.iastep i{width:21px;height:21px;border-radius:99px;flex:none;display:grid;place-items:center;
-  background:#F5C98A;color:#7A3D05;font-size:11.5px;font-weight:700;font-style:normal;
-  font-family:var(--fm)}
 .pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
 .pick{--zc:var(--plum-700); --zb:var(--plum-100);
   position:relative;overflow:hidden;text-align:left;width:100%;background:var(--zb);
@@ -1694,6 +1684,12 @@ function externalUrl(){
   /* LINE รองรับพารามิเตอร์นี้ ให้เด้งออกไปเปิดในเบราว์เซอร์จริง */
   return location.origin + location.pathname + "?openExternalBrowser=1" + location.hash;
 }
+/* สแกน QR ในแอป LINE บน Android — กล้องในแอป LINE ใช้ไม่ได้ จึงส่งไปเปิดใน Chrome ให้เองเงียบๆ
+   (ไม่ขึ้นข้อความเตือน ทุกคนเห็นหน้าจอเหมือนกัน) · มีพารามิเตอร์แล้วจะไม่ส่งซ้ำ กันวนลูป */
+if(typeof location!=="undefined" && /\bLine\//i.test(UA) && IS_ANDROID
+   && !/[?&]openExternalBrowser=1\b/.test(location.search)){
+  try{ location.replace(externalUrl()); }catch(e){}
+}
 /* แปลข้อผิดพลาดจากฐานข้อมูลให้อ่านเข้าใจ */
 function dbErr(e, what){
   const m=String((e&&e.message)||e||"");
@@ -1837,10 +1833,8 @@ function CameraShot({onShot,onClose,onHelp,onDeviceCam,onPhotos}){
     const stop=()=>{ if(streamRef.current){ streamRef.current.getTracks().forEach(t=>t.stop()); streamRef.current=null; } };
     (async()=>{
       stop(); setReady(false); setErr("");
-      if(IN_APP_BROWSER){
-        setErr("inapp"); return;
-      }
       if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        if(IN_APP_BROWSER){ setErr("inapp"); return; }
         setErr("เบราว์เซอร์นี้เปิดกล้องในหน้าเว็บไม่ได้ กรุณาเปิดด้วย "+(IS_IOS?"Safari":"Chrome")); return;
       }
       try{
@@ -1851,6 +1845,7 @@ function CameraShot({onShot,onClose,onHelp,onDeviceCam,onPhotos}){
         if(vid.current){ vid.current.srcObject=st; try{ await vid.current.play(); }catch(e){} }
         setReady(true);
       }catch(e){
+        if(IN_APP_BROWSER){ setErr("inapp"); return; }
         const c=(e&&e.name)||"";
         setErr(c==="NotAllowedError" ? "ยังไม่ได้อนุญาตให้ใช้กล้องในเบราว์เซอร์นี้"
              : c==="NotFoundError"    ? "ไม่พบกล้องบนอุปกรณ์นี้"
@@ -1928,8 +1923,8 @@ function PhotoCapture({preview,onPick,onClear,sizeKB}){
             borderRadius:8,border:"1px solid var(--line)",display:"block",margin:"0 auto"}}/>
           <div style={{marginTop:11,display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
             <button className="btn neutral sm" onClick={()=>libRef.current.click()}><Ic n="cam" s={14}/> เปลี่ยนรูป</button>
-            {!IN_APP_BROWSER && <button className="btn neutral sm" onClick={()=>setCam(true)}>
-              <Ic n="flip" s={14}/> เปิดกล้อง</button>}
+            <button className="btn neutral sm" onClick={()=>setCam(true)}>
+              <Ic n="flip" s={14}/> เปิดกล้อง</button>
             <button className="btn bad sm" onClick={onClear}><Ic n="trash" s={13}/> ลบรูป</button>
           </div>
           {sizeKB>0 && <div className="hint" style={{marginTop:8}}>
@@ -1943,7 +1938,7 @@ function PhotoCapture({preview,onPick,onClear,sizeKB}){
             <span style={{fontSize:16}}>ถ่ายรูป หรือเลือกรูปที่มีอยู่</span>
             <span style={{fontSize:12.5,fontWeight:400,opacity:.85}}>กดแล้วเลือกได้ว่าจะเปิดกล้อง หรือเลือกจากคลังรูป</span>
           </button>
-          {!IN_APP_BROWSER && <>
+          <>
             <button className="btn neutral block" style={{marginTop:10,flexDirection:"column",gap:5,
               padding:"13px 14px",height:"auto",
               borderColor:IS_ANDROID?"#BFE3CC":"var(--line)",
@@ -1957,19 +1952,8 @@ function PhotoCapture({preview,onPick,onClear,sizeKB}){
               <span style={{fontSize:11.5,fontWeight:400,color:"var(--ink-3)",lineHeight:1.5}}>
                 กดชัตเตอร์ได้เลย ไม่ต้องออกจากหน้านี้ · ข้อมูลที่กรอกไว้ไม่หาย</span>
             </button>
-          </>}
+          </>
         </>}
-
-    {IN_APP_BROWSER && <div className="msg i" style={{marginTop:11}}>
-      <div>
-        กำลังเปิดในแอป LINE/Facebook — ปุ่มด้านบนใช้ได้ปกติ
-        แต่ถ้ากดแล้วไม่เปิดกล้อง ให้เปิดด้วย Chrome แทน
-        <div style={{display:"flex",gap:8,marginTop:9,flexWrap:"wrap"}}>
-          <button className="btn sm" onClick={()=>{ location.href=externalUrl(); }}>
-            <Ic n="link" s={14}/> เปิดด้วย Chrome</button>
-          <button className="btn neutral sm" onClick={()=>setHelp(true)}>ดูวิธีแก้</button>
-        </div>
-      </div></div>}
 
     <button className="btn neutral xs" style={{marginTop:10}} onClick={()=>setHelp(true)}>
       กล้องไม่ทำงาน? ดูวิธีแก้</button>
@@ -4610,28 +4594,6 @@ function Page9Withdraw({office}){
     </header>
 
     <div className="wwrap">
-      {IN_APP_BROWSER && <div className="iabox">
-        <div className="iahead">
-          <Ic n="cam" s={22}/>
-          <b>เครื่อง Android · ต้องเปิดด้วย Chrome ก่อน</b>
-        </div>
-        <div className="iabody">
-          <div style={{fontSize:14,marginBottom:11,lineHeight:1.55}}>
-            ตอนนี้เปิดอยู่ในแอป LINE ซึ่งถ่ายรูปไม่ได้
-            <b> กดปุ่มด้านล่างก่อนเริ่มทำรายการ</b> จะได้ไม่ต้องกรอกซ้ำ</div>
-          <button className="btn block lg" style={{background:"linear-gradient(135deg,#F59A2E,#D2610A)"}}
-            onClick={()=>{ location.href=externalUrl(); }}>
-            <Ic n="link" s={17}/> เปิดด้วย Chrome แล้วเริ่มใหม่</button>
-          <div className="hr" style={{margin:"14px 0 10px",background:"#F0DCC0"}}></div>
-          <div className="lbl" style={{color:"#7A3D05",marginBottom:4}}>ถ้าปุ่มไม่ทำงาน ทำตามนี้</div>
-          <div className="iastep"><i>1</i><span>กดจุดสามจุด <b>⋮</b> ที่แถบล่างของหน้าจอ</span></div>
-          <div className="iastep"><i>2</i><span>เลือก <b>เปิดในเบราว์เซอร์อื่น</b></span></div>
-          <div className="iastep"><i>3</i><span>เลือก <b>Chrome</b></span></div>
-          <div className="hint" style={{marginTop:10}}>
-            ทางที่ดีที่สุดคือสแกน QR ด้วย <b>แอปกล้องของเครื่อง</b> โดยตรง จะเปิดใน Chrome ให้เองทันที</div>
-        </div>
-      </div>}
-
       {err && <Msg kind="e">{err}</Msg>}
 
       {/* ขั้นที่ 1 — ระบุตัวผู้เบิก */}
